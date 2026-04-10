@@ -1,0 +1,13 @@
+streamlit
+streamlit-folium
+pandas
+skyfield
+geographiclib
+folium
+reportlab
+
+# Development & Testing
+pytest
+pytest-cov
+pytest-mock
+ruff
