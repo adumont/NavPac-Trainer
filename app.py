@@ -25,6 +25,8 @@ if "iniciado" not in st.session_state:
 
 if "log_navegacion" not in st.session_state:
     st.session_state.log_navegacion = []
+if "log_fixes" not in st.session_state:
+    st.session_state.log_fixes = []
 
 
 # --- MATEMÁTICA NAVAL ---
@@ -362,6 +364,20 @@ if st.button("🗺️ Revelar Posición Real"):
     st.session_state.revelado = True
     st.session_state.fix_revelado = (fix_lat, fix_lon)
 
+    # Registrar Fix en bitácora
+    lat_real_fix, lon_real_fix = st.session_state.pos_real[-1]
+    err_fix = distancia_nmi(lat_real_fix, lon_real_fix, fix_lat, fix_lon)
+    nueva_fix = {
+        "Paso": len(st.session_state.log_fixes) + 1,
+        "Fecha/Hora UTC": st.session_state.hora_actual.strftime("%d-%m-%Y %H:%M"),
+        "Lat Fix": decimal_a_dms_texto(fix_lat, es_latitud=True),
+        "Lon Fix": decimal_a_dms_texto(fix_lon, es_latitud=False),
+        "Lat Real": decimal_a_dms_texto(lat_real_fix, es_latitud=True),
+        "Lon Real": decimal_a_dms_texto(lon_real_fix, es_latitud=False),
+        "Error Fix/Real (nmi)": round(err_fix, 2),
+    }
+    st.session_state.log_fixes = st.session_state.log_fixes + [nueva_fix]
+
 if st.session_state.revelado and st.session_state.fix_revelado is not None:
     fix_lat_mapa, fix_lon_mapa = st.session_state.fix_revelado
     lat_real, lon_real = st.session_state.pos_real[-1]
@@ -419,9 +435,16 @@ if st.session_state.revelado:
     col_l2.caption("🔴 Línea/puntos rojos: posición real del barco")
     col_l3.caption("🟢 Estrella verde: tu Fix introducido")
 
-# --- TABLA BITÁCORA ---
+import pandas as pd
+
+# --- TABLA BITÁCORA NAVEGACIÓN ---
 if st.session_state.log_navegacion:
-    import pandas as pd
     st.header("4. Bitácora de Navegación")
     df = pd.DataFrame(st.session_state.log_navegacion)
     st.dataframe(df, use_container_width=True, hide_index=True)
+
+# --- TABLA FIXES ---
+if st.session_state.log_fixes:
+    st.header("5. Registro de Fixes")
+    df_fixes = pd.DataFrame(st.session_state.log_fixes)
+    st.dataframe(df_fixes, use_container_width=True, hide_index=True)
