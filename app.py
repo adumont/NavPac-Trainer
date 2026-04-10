@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 import folium
 from streamlit_folium import st_folium
-from skyfield.api import Loader, wgs84
+from skyfield.api import Loader, wgs84, Star
 
 # --- CONFIGURACIÓN Y ESTADO ---
 st.set_page_config(page_title="NavPac Simulator MVP", layout="wide")
@@ -14,6 +14,32 @@ st.set_page_config(page_title="NavPac Simulator MVP", layout="wide")
 # Coordenadas de puntos clave
 CADIZ = (36.5333, -6.2833)
 TENERIFE = (28.4667, -16.2500)
+
+# Catálogo de cuerpos celestes navegables
+# Valor: string = clave en efemérides JPL | Star = estrella con coord J2000
+CUERPOS_CELESTES = {
+    "Sol":        "sun",
+    "Luna":       "moon",
+    "Venus":      "venus",
+    "Marte":      "mars",
+    "Júpiter":    "jupiter barycenter",
+    "Saturno":    "saturn barycenter",
+    "Polaris":    Star(ra_hours=2.5303,  dec_degrees=89.2641),
+    "Vega":       Star(ra_hours=18.6157, dec_degrees=38.7836),
+    "Sirius":     Star(ra_hours=6.7525,  dec_degrees=-16.7161),
+    "Arcturus":   Star(ra_hours=14.2612, dec_degrees=19.1822),
+    "Canopus":    Star(ra_hours=6.3992,  dec_degrees=-52.6957),
+    "Rigel":      Star(ra_hours=5.2423,  dec_degrees=-8.2017),
+    "Procyon":    Star(ra_hours=7.6553,  dec_degrees=5.2250),
+    "Betelgeuse": Star(ra_hours=5.9195,  dec_degrees=7.4071),
+    "Altair":     Star(ra_hours=19.8459, dec_degrees=8.8683),
+    "Aldebaran":  Star(ra_hours=4.5987,  dec_degrees=16.5093),
+    "Deneb":      Star(ra_hours=20.6905, dec_degrees=45.2803),
+    "Fomalhaut":  Star(ra_hours=22.9608, dec_degrees=-29.6222),
+    "Regulus":    Star(ra_hours=10.1395, dec_degrees=11.9672),
+    "Spica":      Star(ra_hours=13.4198, dec_degrees=-11.1614),
+    "Antares":    Star(ra_hours=16.4901, dec_degrees=-26.4320),
+}
 
 if "iniciado" not in st.session_state:
     st.session_state.hora_actual = datetime.datetime(2026, 5, 15, 8, 0)
@@ -165,16 +191,29 @@ def cargar_skyfield():
     return ts, eph
 
 
-def altura_sol_aparente(lat, lon, dt_utc):
+def altura_cuerpo(nombre, lat, lon, dt_utc):
+    """Devuelve (altitud_grados, azimut_grados) para cualquier cuerpo del catálogo."""
     ts, eph = cargar_skyfield()
     t = ts.from_datetime(dt_utc)
+    observer = eph["earth"] + wgs84.latlon(latitude_degrees=lat, longitude_degrees=lon)
+    cuerpo_id = CUERPOS_CELESTES[nombre]
+    cuerpo = eph[cuerpo_id] if isinstance(cuerpo_id, str) else cuerpo_id
+    apparent = observer.at(t).observe(cuerpo).apparent()
+    alt, az, _ = apparent.altaz()
+    return alt.degrees, az.degrees
 
-    earth = eph["earth"]
-    sun = eph["sun"]
-    observer = earth + wgs84.latlon(latitude_degrees=lat, longitude_degrees=lon)
-    apparent = observer.at(t).observe(sun).apparent()
-    alt, _, _ = apparent.altaz()
-    return alt.degrees
+
+def cuerpos_visibles(lat, lon, dt_utc, alt_min=5.0):
+    """Devuelve dict {nombre: (alt, az)} para cuerpos por encima de alt_min grados."""
+    resultado = {}
+    for nombre in CUERPOS_CELESTES:
+        try:
+            alt, az = altura_cuerpo(nombre, lat, lon, dt_utc)
+            if alt >= alt_min:
+                resultado[nombre] = (alt, az)
+        except Exception:
+            pass
+    return resultado
 
 
 def distancia_nmi(lat1, lon1, lat2, lon2):
@@ -288,31 +327,63 @@ if st.button("Navegar"):
 
 # 2. SEXTANTE
 st.header("2. Observación Astronómica")
-if st.button("🔭 Tomar Altura del Sol"):
-    lat_real, lon_real = st.session_state.pos_real[-1]
-    dt_utc = st.session_state.hora_actual.replace(tzinfo=datetime.timezone.utc)
 
-    try:
-        hs_real = altura_sol_aparente(lat_real, lon_real, dt_utc)
-        error_obs = 0.0
-        if "Medio" in dificultad:
-            error_obs = random.uniform(-0.15, 0.15)
-        elif "Difícil" in dificultad:
-            error_obs = random.uniform(-0.35, 0.35)
+_lat_obs, _lon_obs = st.session_state.pos_dr[-1]
+_dt_utc = st.session_state.hora_actual.replace(tzinfo=datetime.timezone.utc)
 
-        hs_observada = hs_real + error_obs
+try:
+    _visibles = cuerpos_visibles(_lat_obs, _lon_obs, _dt_utc)
+except Exception as _exc:
+    _visibles = {}
+    st.error(f"Error al calcular cuerpos visibles: {_exc}")
 
-        st.warning(f"Hs: {formatear_grados_mm(hs_observada)}")
-        st.info(f"Para NavPac (SIGHT): **{formatear_navpac_dmmss(hs_observada)}**")
-        st.caption(
-            "Altura solar calculada astronómicamente con Skyfield en la posición real y hora UTC del simulador."
-        )
-    except Exception as exc:
-        st.error(
-            "No se pudo calcular la altura del Sol con efemérides. "
-            "Verifica que exista de421.bsp o conexión para descargarla."
-        )
-        st.caption(f"Detalle técnico: {exc}")
+if not _visibles:
+    st.warning("No hay cuerpos celestes visibles (alt > 5°) a esta hora y posición. Avanza el tiempo.")
+else:
+    # Ordenar por altitud descendente y construir opciones legibles
+    _ordenados = sorted(_visibles.items(), key=lambda x: -x[1][0])
+    _sol_visible = "Sol" in _visibles
+    _hay_estrellas = any(isinstance(CUERPOS_CELESTES[n], Star) for n in _visibles)
+
+    if _sol_visible:
+        st.caption("☀️ El Sol está sobre el horizonte. Observación diurna posible.")
+    if _hay_estrellas:
+        st.caption("⭐ Estrellas visibles: condiciones de crepúsculo o noche.")
+
+    _opciones_mapa = {
+        f"{n}  —  alt {formatear_grados_mm(a)}  az {int(z):03d}°": n
+        for n, (a, z) in _ordenados
+    }
+    _sel_str = st.selectbox("Cuerpo a observar:", list(_opciones_mapa.keys()))
+    _cuerpo_sel = _opciones_mapa[_sel_str]
+
+    if "ultima_observacion" not in st.session_state:
+        st.session_state.ultima_observacion = None
+
+    if st.button("🔭 Tomar Altura", key="btn_tomar_altura"):
+        lat_real, lon_real = st.session_state.pos_real[-1]
+        try:
+            _alt_real, _ = altura_cuerpo(_cuerpo_sel, lat_real, lon_real, _dt_utc)
+            _error_obs = 0.0
+            if "Medio" in dificultad:
+                _error_obs = random.uniform(-0.15, 0.15)
+            elif "Difícil" in dificultad:
+                _error_obs = random.uniform(-0.35, 0.35)
+
+            _hs_obs = _alt_real + _error_obs
+            st.session_state.ultima_observacion = {
+                "cuerpo": _cuerpo_sel,
+                "hs": _hs_obs,
+                "fecha": st.session_state.hora_actual.strftime("%d-%m-%Y %H:%M"),
+            }
+        except Exception as exc:
+            st.error(f"Error al calcular la altura de {_cuerpo_sel}: {exc}")
+
+    if st.session_state.ultima_observacion is not None:
+        _obs = st.session_state.ultima_observacion
+        st.warning(f"Hs ({_obs['cuerpo']}): {formatear_grados_mm(_obs['hs'])}")
+        st.info(f"Para NavPac SIGHT: **{formatear_navpac_dmmss(_obs['hs'])}**")
+        st.caption(f"Lectura guardada: {_obs['fecha']} UTC · Skyfield · posición real del barco.")
 
 # 3. EL MAPA DE LA VERDAD
 st.header("3. Posicionamiento")
