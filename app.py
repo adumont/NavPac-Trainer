@@ -20,7 +20,11 @@ if "iniciado" not in st.session_state:
     st.session_state.pos_real = [CADIZ]
     st.session_state.pos_dr = [CADIZ]
     st.session_state.fixes = []
+    st.session_state.log_navegacion = []
     st.session_state.iniciado = True
+
+if "log_navegacion" not in st.session_state:
+    st.session_state.log_navegacion = []
 
 
 # --- MATEMÁTICA NAVAL ---
@@ -235,23 +239,46 @@ if st.button("Navegar"):
     st.session_state.hora_actual += datetime.timedelta(hours=horas)
     distancia = velocidad * horas
 
-    # Mover Estima (DR)
+    # Mover Estima (DR) — el navegante no aplica correcciones de deriva
     u_lat_dr, u_lon_dr = st.session_state.pos_dr[-1]
     n_lat_dr, n_lon_dr = mover_barco(u_lat_dr, u_lon_dr, rumbo, distancia)
-    st.session_state.pos_dr.append((n_lat_dr, n_lon_dr))
+    st.session_state.pos_dr = st.session_state.pos_dr + [(n_lat_dr, n_lon_dr)]
 
-    # Mover Real con error
-    err_r, err_v = 0, 0
-    if "Medio" in dificultad:
-        err_r, err_v = random.uniform(-3, 3), random.uniform(-0.5, 0.5)
-    elif "Difícil" in dificultad:
-        err_r, err_v = random.uniform(-7, 7), random.uniform(-1.2, 1.2)
-
+    # Mover Real con error y deriva (también cuando velocidad=0)
     u_lat_re, u_lon_re = st.session_state.pos_real[-1]
-    n_lat_re, n_lon_re = mover_barco(
-        u_lat_re, u_lon_re, rumbo + err_r, (velocidad + err_v) * horas
-    )
-    st.session_state.pos_real.append((n_lat_re, n_lon_re))
+
+    if velocidad == 0:
+        # Barco parado: solo actúan corrientes/deriva según dificultad
+        deriva_vel = {"Calma (Fácil)": 0.15, "Moderado (Medio)": 0.35, "Temporal (Difícil)": 0.8}.get(dificultad, 0.15)
+        deriva_rumbo = random.uniform(0, 360)
+        n_lat_re, n_lon_re = mover_barco(u_lat_re, u_lon_re, deriva_rumbo, deriva_vel * horas)
+    else:
+        err_r, err_v = 0, 0
+        if "Medio" in dificultad:
+            err_r, err_v = random.uniform(-3, 3), random.uniform(-0.5, 0.5)
+        elif "Difícil" in dificultad:
+            err_r, err_v = random.uniform(-7, 7), random.uniform(-1.2, 1.2)
+        vel_real = max(0.0, velocidad + err_v)
+        n_lat_re, n_lon_re = mover_barco(u_lat_re, u_lon_re, rumbo + err_r, vel_real * horas)
+
+    st.session_state.pos_real = st.session_state.pos_real + [(n_lat_re, n_lon_re)]
+
+    # Registrar en bitácora
+    diff_nmi = distancia_nmi(n_lat_dr, n_lon_dr, n_lat_re, n_lon_re)
+    nueva_entrada = {
+        "Fecha/Hora UTC": st.session_state.hora_actual.strftime("%d-%m-%Y %H:%M"),
+        "Rumbo (º)": rumbo,
+        "Vel (kn)": velocidad,
+        "Horas": horas,
+        "Dist DR (nmi)": round(distancia, 1),
+        "Lat Estima": formatear_angulo_dms(n_lat_dr, es_latitud=True),
+        "Lon Estima": formatear_angulo_dms(n_lon_dr, es_latitud=False),
+        "Lat Real": formatear_angulo_dms(n_lat_re, es_latitud=True),
+        "Lon Real": formatear_angulo_dms(n_lon_re, es_latitud=False),
+        "Error (nmi)": round(diff_nmi, 2),
+    }
+    st.session_state.log_navegacion = st.session_state.log_navegacion + [nueva_entrada]
+
     st.success(
         f"Navegación completada. Hora actual: {st.session_state.hora_actual.strftime('%H:%M')} UTC"
     )
@@ -340,22 +367,53 @@ if st.session_state.revelado and st.session_state.fix_revelado is not None:
     lat_real, lon_real = st.session_state.pos_real[-1]
     lat_real_dms, lon_real_dms = formatear_lat_lon_dms(lat_real, lon_real)
     error_nmi = distancia_nmi(lat_real, lon_real, fix_lat_mapa, fix_lon_mapa)
-
     st.success(f"Posición real: Lat {lat_real_dms} | Lon {lon_real_dms}")
     st.info(f"Error de tu Fix: {error_nmi:.2f} nmi")
 
-    m = folium.Map(location=[u_lat_dr, u_lon_dr], zoom_start=6)
-    folium.PolyLine(
-        st.session_state.pos_dr, color="blue", weight=2, label="Estima"
+# Mapa: Estima siempre visible; track real solo cuando revelado
+m = folium.Map(location=[u_lat_dr, u_lon_dr], zoom_start=6)
+
+# --- Línea Estima (azul) con marcador en cada waypoint ---
+if len(st.session_state.pos_dr) > 1:
+    folium.PolyLine(st.session_state.pos_dr, color="blue", weight=2).add_to(m)
+for i, (lat, lon) in enumerate(st.session_state.pos_dr):
+    tooltip = "Salida (Estima)" if i == 0 else f"Estima #{i}"
+    folium.CircleMarker(
+        location=(lat, lon), radius=5, color="blue", fill=True,
+        fill_opacity=0.85, tooltip=tooltip,
     ).add_to(m)
-    folium.PolyLine(
-        st.session_state.pos_real, color="red", weight=2, label="Real"
-    ).add_to(m)
-    folium.Marker(st.session_state.pos_real[-1], icon=folium.Icon(color="red")).add_to(
-        m
-    )
-    folium.Marker((fix_lat_mapa, fix_lon_mapa), icon=folium.Icon(color="green", icon="star")).add_to(m)
-    st_folium(m, width=800, height=450)
-    st.markdown("**Leyenda del mapa**")
-    st.caption("🔴 Icono rojo (i): posición real del barco")
-    st.caption("🟢 Icono verde (★): tu Fix introducido")
+
+# --- Track real + marcadores (solo si revelado) ---
+if st.session_state.revelado:
+    if len(st.session_state.pos_real) > 1:
+        folium.PolyLine(st.session_state.pos_real, color="red", weight=2).add_to(m)
+    for i, (lat, lon) in enumerate(st.session_state.pos_real):
+        tooltip = "Salida (real)" if i == 0 else f"Posición real #{i}"
+        folium.CircleMarker(
+            location=(lat, lon), radius=5, color="red", fill=True,
+            fill_opacity=0.85, tooltip=tooltip,
+        ).add_to(m)
+    # Fix del navegante
+    if st.session_state.fix_revelado is not None:
+        fix_lat_mapa, fix_lon_mapa = st.session_state.fix_revelado
+        folium.Marker(
+            (fix_lat_mapa, fix_lon_mapa),
+            icon=folium.Icon(color="green", icon="star"),
+            tooltip="Tu Fix",
+        ).add_to(m)
+
+st_folium(m, width=800, height=450)
+
+# Leyenda
+col_l1, col_l2, col_l3 = st.columns(3)
+col_l1.caption("🔵 Línea/puntos azules: tu Estima (Dead Reckoning)")
+if st.session_state.revelado:
+    col_l2.caption("🔴 Línea/puntos rojos: posición real del barco")
+    col_l3.caption("🟢 Estrella verde: tu Fix introducido")
+
+# --- TABLA BITÁCORA ---
+if st.session_state.log_navegacion:
+    import pandas as pd
+    st.header("4. Bitácora de Navegación")
+    df = pd.DataFrame(st.session_state.log_navegacion)
+    st.dataframe(df, use_container_width=True, hide_index=True)
