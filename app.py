@@ -2,8 +2,10 @@ import streamlit as st
 import datetime
 import math
 import random
+from pathlib import Path
 import folium
 from streamlit_folium import st_folium
+from skyfield.api import Loader, wgs84
 
 # --- CONFIGURACIÓN Y ESTADO ---
 st.set_page_config(page_title="NavPac Simulator MVP", layout="wide")
@@ -64,6 +66,52 @@ def formatear_lat_lon_dms(lat, lon):
         formatear_angulo_dms(lat, es_latitud=True),
         formatear_angulo_dms(lon, es_latitud=False),
     )
+
+
+def formatear_navpac_dmmss(valor):
+    grados = int(valor)
+    minutos = int((valor - grados) * 60)
+    return f"{grados}.{minutos:02d}"
+
+
+def formatear_grados_mm(valor):
+    signo = "-" if valor < 0 else ""
+    abs_val = abs(valor)
+    grados = int(abs_val)
+    minutos_float = (abs_val - grados) * 60
+    minutos = int(round(minutos_float))
+    if minutos == 60:
+        minutos = 0
+        grados += 1
+
+    return f"{signo}{grados:02d}º{minutos:02d}"
+
+
+@st.cache_resource
+def cargar_skyfield():
+    base_dir = Path(__file__).resolve().parent
+    ephem_path = base_dir.parent / "Polaris" / "de421.bsp"
+    loader = Loader(str(base_dir / ".skyfield"))
+    ts = loader.timescale()
+
+    if ephem_path.exists():
+        eph = loader(str(ephem_path))
+    else:
+        eph = loader("de421.bsp")
+
+    return ts, eph
+
+
+def altura_sol_aparente(lat, lon, dt_utc):
+    ts, eph = cargar_skyfield()
+    t = ts.from_datetime(dt_utc)
+
+    earth = eph["earth"]
+    sun = eph["sun"]
+    observer = earth + wgs84.latlon(latitude_degrees=lat, longitude_degrees=lon)
+    apparent = observer.at(t).observe(sun).apparent()
+    alt, _, _ = apparent.altaz()
+    return alt.degrees
 
 
 # --- INTERFAZ ---
@@ -139,17 +187,30 @@ if st.button("Navegar"):
 # 2. SEXTANTE
 st.header("2. Observación Astronómica")
 if st.button("🔭 Tomar Altura del Sol"):
-    lat_real = st.session_state.pos_real[-1][0]
-    # Simulación de altura del sol (Hs)
-    hs_base = 90 - abs(lat_real - 18)
-    error = random.uniform(-0.1, 0.1) if "Fácil" not in dificultad else 0
-    hs = hs_base + error
+    lat_real, lon_real = st.session_state.pos_real[-1]
+    dt_utc = st.session_state.hora_actual.replace(tzinfo=datetime.timezone.utc)
 
-    grados = int(hs)
-    minutos = (hs - grados) * 60
-    # Formato para HP-41C (D.MMSS)
-    st.warning(f"Hs: {grados}º {minutos:.1f}'")
-    st.info(f"Para NavPac (SIGHT): **{grados}.{int(minutos):02d}**")
+    try:
+        hs_real = altura_sol_aparente(lat_real, lon_real, dt_utc)
+        error_obs = 0.0
+        if "Medio" in dificultad:
+            error_obs = random.uniform(-0.15, 0.15)
+        elif "Difícil" in dificultad:
+            error_obs = random.uniform(-0.35, 0.35)
+
+        hs_observada = hs_real + error_obs
+
+        st.warning(f"Hs: {formatear_grados_mm(hs_observada)}")
+        st.info(f"Para NavPac (SIGHT): **{formatear_navpac_dmmss(hs_observada)}**")
+        st.caption(
+            "Altura solar calculada astronómicamente con Skyfield en la posición real y hora UTC del simulador."
+        )
+    except Exception as exc:
+        st.error(
+            "No se pudo calcular la altura del Sol con efemérides. "
+            "Verifica que exista de421.bsp o conexión para descargarla."
+        )
+        st.caption(f"Detalle técnico: {exc}")
 
 # 3. EL MAPA DE LA VERDAD
 st.header("3. Posicionamiento")
