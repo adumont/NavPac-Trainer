@@ -171,6 +171,22 @@ def altura_sol_aparente(lat, lon, dt_utc):
     return alt.degrees
 
 
+def distancia_nmi(lat1, lon1, lat2, lon2):
+    # Distancia ortodrómica con radio terrestre medio en millas náuticas.
+    r_nmi = 3440.065
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+
+    a = (
+        math.sin(dphi / 2) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    )
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return r_nmi * c
+
+
 # --- INTERFAZ ---
 st.title("⛵ NavPac Simulator: Cádiz ➡️ Canarias")
 
@@ -306,10 +322,27 @@ except ValueError as exc:
     fix_error = str(exc)
     st.warning(f"Formato de Fix inválido: {fix_error}")
 
+if "revelado" not in st.session_state:
+    st.session_state.revelado = False
+if "fix_revelado" not in st.session_state:
+    st.session_state.fix_revelado = None
+
 if st.button("🗺️ Revelar Posición Real"):
     if not fix_valido:
         st.error("No se puede revelar con Fix inválido. Revisa el formato DDºmm:ss.")
         st.stop()
+
+    st.session_state.revelado = True
+    st.session_state.fix_revelado = (fix_lat, fix_lon)
+
+if st.session_state.revelado and st.session_state.fix_revelado is not None:
+    fix_lat_mapa, fix_lon_mapa = st.session_state.fix_revelado
+    lat_real, lon_real = st.session_state.pos_real[-1]
+    lat_real_dms, lon_real_dms = formatear_lat_lon_dms(lat_real, lon_real)
+    error_nmi = distancia_nmi(lat_real, lon_real, fix_lat_mapa, fix_lon_mapa)
+
+    st.success(f"Posición real: Lat {lat_real_dms} | Lon {lon_real_dms}")
+    st.info(f"Error de tu Fix: {error_nmi:.2f} nmi")
 
     m = folium.Map(location=[u_lat_dr, u_lon_dr], zoom_start=6)
     folium.PolyLine(
@@ -321,7 +354,5 @@ if st.button("🗺️ Revelar Posición Real"):
     folium.Marker(st.session_state.pos_real[-1], icon=folium.Icon(color="red")).add_to(
         m
     )
-    folium.Marker(
-        (fix_lat, fix_lon), icon=folium.Icon(color="green", icon="star")
-    ).add_to(m)
+    folium.Marker((fix_lat_mapa, fix_lon_mapa), icon=folium.Icon(color="green", icon="star")).add_to(m)
     st_folium(m, width=800, height=450)
