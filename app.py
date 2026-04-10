@@ -2,6 +2,7 @@ import streamlit as st
 import datetime
 import math
 import random
+import re
 from pathlib import Path
 import folium
 from streamlit_folium import st_folium
@@ -85,6 +86,62 @@ def formatear_grados_mm(valor):
         grados += 1
 
     return f"{signo}{grados:02d}º{minutos:02d}"
+
+
+def decimal_a_dms_texto(valor, es_latitud=True):
+    abs_val = abs(valor)
+    grados = int(abs_val)
+    minutos_float = (abs_val - grados) * 60
+    minutos = int(minutos_float)
+    segundos = int(round((minutos_float - minutos) * 60))
+
+    if segundos == 60:
+        segundos = 0
+        minutos += 1
+    if minutos == 60:
+        minutos = 0
+        grados += 1
+
+    if es_latitud:
+        hemi = "N" if valor >= 0 else "S"
+    else:
+        hemi = "E" if valor >= 0 else "W"
+
+    return f"{grados:02d}º{minutos:02d}:{segundos:02d} {hemi}"
+
+
+def dms_texto_a_decimal(texto, es_latitud=True):
+    patron = r"^\s*([+-]?\d{1,3})\s*[°º]\s*(\d{1,2})\s*[:']\s*(\d{1,2})(?:\s*\"?)\s*([NSEWnsew])?\s*$"
+    m = re.match(patron, texto)
+    if not m:
+        raise ValueError("Formato inválido. Usa DDºmm:ss (ej: 36º31:60 N)")
+
+    grados_raw = int(m.group(1))
+    minutos = int(m.group(2))
+    segundos = int(m.group(3))
+    hemi = m.group(4).upper() if m.group(4) else None
+
+    if minutos < 0 or minutos > 59 or segundos < 0 or segundos > 59:
+        raise ValueError("Minutos/segundos fuera de rango (00-59)")
+
+    signo = -1 if grados_raw < 0 else 1
+    grados = abs(grados_raw)
+    valor = grados + (minutos / 60.0) + (segundos / 3600.0)
+
+    if hemi:
+        if es_latitud and hemi not in ("N", "S"):
+            raise ValueError("Latitud debe usar N o S")
+        if not es_latitud and hemi not in ("E", "W"):
+            raise ValueError("Longitud debe usar E o W")
+        signo = -1 if hemi in ("S", "W") else 1
+
+    valor *= signo
+
+    limite = 90 if es_latitud else 180
+    if abs(valor) > limite:
+        raise ValueError(f"Valor fuera de rango para {'latitud' if es_latitud else 'longitud'}")
+
+    return valor
 
 
 @st.cache_resource
@@ -218,16 +275,42 @@ u_lat_dr, u_lon_dr = st.session_state.pos_dr[-1]
 lat_dr_dms, lon_dr_dms = formatear_lat_lon_dms(u_lat_dr, u_lon_dr)
 st.caption(f"Estima actual (DMS): Lat {lat_dr_dms} | Lon {lon_dr_dms}")
 col_lat, col_lon = st.columns(2)
-fix_lat = col_lat.number_input(
-    "Latitud de tu Fix", value=float(u_lat_dr), format="%.4f"
+
+if "fix_lat_texto" not in st.session_state:
+    st.session_state.fix_lat_texto = decimal_a_dms_texto(u_lat_dr, es_latitud=True)
+if "fix_lon_texto" not in st.session_state:
+    st.session_state.fix_lon_texto = decimal_a_dms_texto(u_lon_dr, es_latitud=False)
+
+fix_lat_texto = col_lat.text_input(
+    "Latitud de tu Fix (DDºmm:ss)",
+    value=st.session_state.fix_lat_texto,
+    help="Ejemplo: 36º31:59 N",
 )
-fix_lon = col_lon.number_input(
-    "Longitud de tu Fix", value=float(u_lon_dr), format="%.4f"
+fix_lon_texto = col_lon.text_input(
+    "Longitud de tu Fix (DDºmm:ss)",
+    value=st.session_state.fix_lon_texto,
+    help="Ejemplo: 006º17:00 W",
 )
-fix_lat_dms, fix_lon_dms = formatear_lat_lon_dms(fix_lat, fix_lon)
-st.caption(f"Fix introducido (DMS): Lat {fix_lat_dms} | Lon {fix_lon_dms}")
+
+st.session_state.fix_lat_texto = fix_lat_texto
+st.session_state.fix_lon_texto = fix_lon_texto
+
+fix_valido = True
+fix_error = None
+try:
+    fix_lat = dms_texto_a_decimal(fix_lat_texto, es_latitud=True)
+    fix_lon = dms_texto_a_decimal(fix_lon_texto, es_latitud=False)
+    st.caption(f"Fix decimal interno: Lat {fix_lat:.4f} | Lon {fix_lon:.4f}")
+except ValueError as exc:
+    fix_valido = False
+    fix_error = str(exc)
+    st.warning(f"Formato de Fix inválido: {fix_error}")
 
 if st.button("🗺️ Revelar Posición Real"):
+    if not fix_valido:
+        st.error("No se puede revelar con Fix inválido. Revisa el formato DDºmm:ss.")
+        st.stop()
+
     m = folium.Map(location=[u_lat_dr, u_lon_dr], zoom_start=6)
     folium.PolyLine(
         st.session_state.pos_dr, color="blue", weight=2, label="Estima"
