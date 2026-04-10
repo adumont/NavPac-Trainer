@@ -402,11 +402,19 @@ if st.session_state.revelado:
             tooltip="Tu Fix",
         ).add_to(m)
 
+# Destino
+folium.Marker(
+    TENERIFE,
+    icon=folium.Icon(color="orange", icon="flag"),
+    tooltip="Destino: Tenerife",
+).add_to(m)
+
 st_folium(m, width=800, height=450)
 
 # Leyenda
-col_l1, col_l2, col_l3 = st.columns(3)
+col_l1, col_l2, col_l3, col_l4 = st.columns(4)
 col_l1.caption("🔵 Línea/puntos azules: tu Estima (Dead Reckoning)")
+col_l4.caption("🟠 Bandera naranja: Destino (Tenerife)")
 if st.session_state.revelado:
     col_l2.caption("🔴 Línea/puntos rojos: posición real del barco")
     col_l3.caption("🟢 Estrella verde: tu Fix introducido")
