@@ -228,7 +228,7 @@ dificultad = st.sidebar.radio(
 st.header("1. Órdenes a Máquinas")
 c1, c2, c3 = st.columns(3)
 rumbo = c1.number_input("Rumbo (º)", 0, 359, 225)
-velocidad = c2.number_input("Velocidad (nudos)", 1, 20, 6)
+velocidad = c2.number_input("Velocidad (nudos)", 0, 20, 6)
 horas = c3.number_input("Tiempo (Horas)", 1, 48, 12)
 
 if st.button("Navegar"):
@@ -356,3 +356,6 @@ if st.session_state.revelado and st.session_state.fix_revelado is not None:
     )
     folium.Marker((fix_lat_mapa, fix_lon_mapa), icon=folium.Icon(color="green", icon="star")).add_to(m)
     st_folium(m, width=800, height=450)
+    st.markdown("**Leyenda del mapa**")
+    st.caption("🔴 Icono rojo (i): posición real del barco")
+    st.caption("🟢 Icono verde (★): tu Fix introducido")
