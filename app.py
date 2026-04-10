@@ -37,6 +37,35 @@ def mover_barco(lat, lon, rumbo, distancia):
     return math.degrees(lat2), math.degrees(lon2)
 
 
+def formatear_angulo_dms(valor, es_latitud=True):
+    abs_val = abs(valor)
+    grados = int(abs_val)
+    minutos_float = (abs_val - grados) * 60
+    minutos = int(minutos_float)
+    segundos = int(round((minutos_float - minutos) * 60))
+
+    if segundos == 60:
+        segundos = 0
+        minutos += 1
+    if minutos == 60:
+        minutos = 0
+        grados += 1
+
+    if es_latitud:
+        hemisferio = "N" if valor >= 0 else "S"
+    else:
+        hemisferio = "E" if valor >= 0 else "W"
+
+    return f"{grados:02d}º{minutos:02d}:{segundos:02d} {hemisferio}"
+
+
+def formatear_lat_lon_dms(lat, lon):
+    return (
+        formatear_angulo_dms(lat, es_latitud=True),
+        formatear_angulo_dms(lon, es_latitud=False),
+    )
+
+
 # --- INTERFAZ ---
 st.title("⛵ NavPac Simulator: Cádiz ➡️ Canarias")
 
@@ -45,7 +74,8 @@ with st.expander("📖 Cuaderno de Bitácora - Datos de Misión", expanded=True)
     col_a, col_b, col_c = st.columns(3)
     with col_a:
         st.markdown("### 📍 Posición de Salida")
-        st.code(f"Cádiz\nLat: {CADIZ[0]}º N\nLon: {abs(CADIZ[1])}º W", language="text")
+        cadiz_lat_dms, cadiz_lon_dms = formatear_lat_lon_dms(CADIZ[0], CADIZ[1])
+        st.code(f"Cádiz\nLat: {cadiz_lat_dms}\nLon: {cadiz_lon_dms}", language="text")
     
     with col_b:
         st.markdown("### 📅 Cronómetro UTC")
@@ -57,7 +87,13 @@ with st.expander("📖 Cuaderno de Bitácora - Datos de Misión", expanded=True)
 
     with col_c:
         st.markdown("### 🏁 Destino")
-        st.code(f"Tenerife\nLat: {TENERIFE[0]}º N\nLon: {abs(TENERIFE[1])}º W", language="text")
+        tenerife_lat_dms, tenerife_lon_dms = formatear_lat_lon_dms(
+            TENERIFE[0], TENERIFE[1]
+        )
+        st.code(
+            f"Tenerife\nLat: {tenerife_lat_dms}\nLon: {tenerife_lon_dms}",
+            language="text",
+        )
 
     st.info("💡 Consejo NavPac: Recuerda que para el programa 'SIGHT', la hora UTC es vital para obtener el GHA y la Dec del astro.")
 
@@ -118,6 +154,8 @@ if st.button("🔭 Tomar Altura del Sol"):
 # 3. EL MAPA DE LA VERDAD
 st.header("3. Posicionamiento")
 u_lat_dr, u_lon_dr = st.session_state.pos_dr[-1]
+lat_dr_dms, lon_dr_dms = formatear_lat_lon_dms(u_lat_dr, u_lon_dr)
+st.caption(f"Estima actual (DMS): Lat {lat_dr_dms} | Lon {lon_dr_dms}")
 col_lat, col_lon = st.columns(2)
 fix_lat = col_lat.number_input(
     "Latitud de tu Fix", value=float(u_lat_dr), format="%.4f"
@@ -125,6 +163,8 @@ fix_lat = col_lat.number_input(
 fix_lon = col_lon.number_input(
     "Longitud de tu Fix", value=float(u_lon_dr), format="%.4f"
 )
+fix_lat_dms, fix_lon_dms = formatear_lat_lon_dms(fix_lat, fix_lon)
+st.caption(f"Fix introducido (DMS): Lat {fix_lat_dms} | Lon {fix_lon_dms}")
 
 if st.button("🗺️ Revelar Posición Real"):
     m = folium.Map(location=[u_lat_dr, u_lon_dr], zoom_start=6)
