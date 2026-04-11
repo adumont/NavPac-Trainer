@@ -251,7 +251,7 @@ def semidiametro_minutos(nombre, distancia_km):
     return math.degrees(math.asin(min(1.0, radio_km / distancia_km))) * 60.0
 
 
-def lectura_sextante(nombre, lat, lon, dt_utc, altura_ojo_m=2.0, limbo="Centro"):
+def lectura_sextante(nombre, lat, lon, dt_utc, altura_ojo_m=3.048, limbo="Centro"):
     apparent = observacion_aparente(nombre, lat, lon, dt_utc)
     alt_true, az, _ = apparent.altaz()
     alt_refr, _, _ = apparent.altaz(
@@ -439,14 +439,15 @@ else:
     _usa_limbo = _cuerpo_sel in RADIOS_CUERPOS_KM
 
     _col_obs_1, _col_obs_2 = st.columns(2)
-    _altura_ojo = _col_obs_1.number_input(
-        "Altura de ojo sobre el mar (m)",
+    _altura_ojo_ft = _col_obs_1.number_input(
+        "Altura de ojo sobre el mar (ft)",
         min_value=0.0,
-        max_value=30.0,
-        value=2.0,
+        max_value=100.0,
+        value=10.0,
         step=0.5,
         help="Se usa para aplicar la depresión del horizonte en la lectura Hs.",
     )
+    _altura_ojo_m = _altura_ojo_ft * 0.3048
 
     if _usa_limbo:
         _limbo = _col_obs_2.selectbox(
@@ -470,7 +471,7 @@ else:
                 lat_real,
                 lon_real,
                 _dt_utc,
-                altura_ojo_m=_altura_ojo,
+                altura_ojo_m=_altura_ojo_m,
                 limbo=_limbo,
             )
             _error_obs_min = 0.0
@@ -483,7 +484,8 @@ else:
             st.session_state.ultima_observacion = {
                 "cuerpo": _cuerpo_sel,
                 "hs": _hs_obs,
-                "altura_ojo_m": _altura_ojo,
+                "altura_ojo_ft": _altura_ojo_ft,
+                "altura_ojo_m": _altura_ojo_m,
                 "limbo": _limbo,
                 "az": _obs_real["az"],
                 "refraccion_min": _obs_real["refraccion_min"],
@@ -509,8 +511,10 @@ else:
             f"Para NavPac SIGHT (DD.MMSS): **{formatear_navpac_dmmss(_obs['hs'])}**"
         )
 
+        _altura_obs_ft = _obs.get("altura_ojo_ft", _obs.get("altura_ojo_m", 0.0) / 0.3048)
+
         _partes_obs = [
-            f"altura de ojo {_obs['altura_ojo_m']:.1f} m",
+            f"altura de ojo {_altura_obs_ft:.1f} ft",
             f"refracción +{_obs['refraccion_min']:.1f}'",
             f"dip +{_obs['dip_min']:.1f}'",
         ]
