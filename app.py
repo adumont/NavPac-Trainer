@@ -371,9 +371,22 @@ dificultad = st.sidebar.radio(
 # 1. EL TIMÓN
 st.header("1. Órdenes a Máquinas")
 c1, c2, c3 = st.columns(3)
-rumbo = c1.number_input("Rumbo (º)", 0, 359, 225)
+rumbo = c1.number_input("Rumbo (º)", 0, 359, 229)
 velocidad = c2.number_input("Velocidad (nudos)", 0, 20, 6)
-horas = c3.number_input("Tiempo (Horas)", 1, 48, 12)
+# Input for time in HH:MM format
+horas_hhmm = c3.text_input(
+    "Tiempo (HH:MM)",
+    value="04:00",
+    help="Introduce el tiempo en formato HH:MM (ejemplo: 12:30)"
+)
+# Convert HH:MM to decimal hours
+_horas_match = re.match(r"^\s*(\d{1,2}):(\d{2})\s*$", horas_hhmm)
+if _horas_match:
+    horas = int(_horas_match.group(1)) + int(_horas_match.group(2)) / 60.0
+else:
+    st.error("Formato de tiempo inválido. Usa HH:MM (ejemplo: 12:30)")
+    horas = 0.0
+
 
 if st.button("Navegar"):
     st.session_state.hora_actual += datetime.timedelta(hours=horas)
