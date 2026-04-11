@@ -41,6 +41,11 @@ CUERPOS_CELESTES = {
     "Antares":    Star(ra_hours=16.4901, dec_degrees=-26.4320),
 }
 
+RADIOS_CUERPOS_KM = {
+    "Sol": 695700.0,
+    "Luna": 1737.4,
+}
+
 if "iniciado" not in st.session_state:
     st.session_state.hora_actual = datetime.datetime(2026, 5, 15, 8, 0)
     st.session_state.pos_real = [CADIZ]
@@ -102,9 +107,21 @@ def formatear_lat_lon_dms(lat, lon):
 
 
 def formatear_navpac_dmmss(valor):
-    grados = int(valor)
-    minutos = int((valor - grados) * 60)
-    return f"{grados}.{minutos:02d}"
+    signo = "-" if valor < 0 else ""
+    abs_val = abs(valor)
+    grados = int(abs_val)
+    minutos_float = (abs_val - grados) * 60
+    minutos = int(minutos_float)
+    segundos = int(round((minutos_float - minutos) * 60))
+
+    if segundos == 60:
+        segundos = 0
+        minutos += 1
+    if minutos == 60:
+        minutos = 0
+        grados += 1
+
+    return f"{signo}{grados}.{minutos:02d}{segundos:02d}"
 
 
 def formatear_grados_mm(valor):
@@ -118,6 +135,20 @@ def formatear_grados_mm(valor):
         grados += 1
 
     return f"{signo}{grados:02d}º{minutos:02d}"
+
+
+def formatear_grados_minutos_decimal(valor, decimales_minutos=1):
+    signo = "-" if valor < 0 else ""
+    abs_val = abs(valor)
+    grados = int(abs_val)
+    minutos = round((abs_val - grados) * 60, decimales_minutos)
+
+    if minutos >= 60:
+        minutos = 0.0
+        grados += 1
+
+    ancho = 2 if decimales_minutos == 0 else 3 + decimales_minutos
+    return f"{signo}{grados:02d}º{minutos:0{ancho}.{decimales_minutos}f}'"
 
 
 def decimal_a_dms_texto(valor, es_latitud=True):
@@ -191,16 +222,65 @@ def cargar_skyfield():
     return ts, eph
 
 
-def altura_cuerpo(nombre, lat, lon, dt_utc):
-    """Devuelve (altitud_grados, azimut_grados) para cualquier cuerpo del catálogo."""
+def observacion_aparente(nombre, lat, lon, dt_utc):
     ts, eph = cargar_skyfield()
     t = ts.from_datetime(dt_utc)
     observer = eph["earth"] + wgs84.latlon(latitude_degrees=lat, longitude_degrees=lon)
     cuerpo_id = CUERPOS_CELESTES[nombre]
     cuerpo = eph[cuerpo_id] if isinstance(cuerpo_id, str) else cuerpo_id
-    apparent = observer.at(t).observe(cuerpo).apparent()
+    return observer.at(t).observe(cuerpo).apparent()
+
+
+def altura_cuerpo(nombre, lat, lon, dt_utc):
+    """Devuelve la altitud verdadera del centro (sin refracción) y azimut."""
+    apparent = observacion_aparente(nombre, lat, lon, dt_utc)
     alt, az, _ = apparent.altaz()
     return alt.degrees, az.degrees
+
+
+def correccion_dip_minutos(altura_ojo_m):
+    if altura_ojo_m <= 0:
+        return 0.0
+    return 1.76 * math.sqrt(altura_ojo_m)
+
+
+def semidiametro_minutos(nombre, distancia_km):
+    radio_km = RADIOS_CUERPOS_KM.get(nombre)
+    if radio_km is None or distancia_km <= 0:
+        return 0.0
+    return math.degrees(math.asin(min(1.0, radio_km / distancia_km))) * 60.0
+
+
+def lectura_sextante(nombre, lat, lon, dt_utc, altura_ojo_m=2.0, limbo="Centro"):
+    apparent = observacion_aparente(nombre, lat, lon, dt_utc)
+    alt_true, az, _ = apparent.altaz()
+    alt_refr, _, _ = apparent.altaz(
+        temperature_C="standard",
+        pressure_mbar="standard",
+    )
+
+    alt_centro_real = alt_true.degrees
+    refraccion_min = max(0.0, (alt_refr.degrees - alt_centro_real) * 60.0)
+    dip_min = correccion_dip_minutos(altura_ojo_m)
+    semidiametro_cuerpo_min = semidiametro_minutos(nombre, apparent.distance().km)
+
+    ajuste_limbo_min = 0.0
+    if semidiametro_cuerpo_min > 0:
+        if limbo == "Inferior":
+            ajuste_limbo_min = -semidiametro_cuerpo_min
+        elif limbo == "Superior":
+            ajuste_limbo_min = semidiametro_cuerpo_min
+
+    hs = alt_centro_real + (refraccion_min + dip_min + ajuste_limbo_min) / 60.0
+    return {
+        "hs": hs,
+        "az": az.degrees,
+        "alt_centro_real": alt_centro_real,
+        "refraccion_min": refraccion_min,
+        "dip_min": dip_min,
+        "semidiametro_min": semidiametro_cuerpo_min,
+        "limbo": limbo,
+    }
 
 
 def cuerpos_visibles(lat, lon, dt_utc, alt_min=5.0):
@@ -356,6 +436,28 @@ else:
     }
     _sel_str = st.selectbox("Cuerpo a observar:", list(_opciones_mapa.keys()))
     _cuerpo_sel = _opciones_mapa[_sel_str]
+    _usa_limbo = _cuerpo_sel in RADIOS_CUERPOS_KM
+
+    _col_obs_1, _col_obs_2 = st.columns(2)
+    _altura_ojo = _col_obs_1.number_input(
+        "Altura de ojo sobre el mar (m)",
+        min_value=0.0,
+        max_value=30.0,
+        value=2.0,
+        step=0.5,
+        help="Se usa para aplicar la depresión del horizonte en la lectura Hs.",
+    )
+
+    if _usa_limbo:
+        _limbo = _col_obs_2.selectbox(
+            "Limbo observado",
+            options=["Inferior", "Superior"],
+            index=0,
+            help="Para Sol y Luna, la lectura del sextante depende del limbo observado.",
+        )
+    else:
+        _limbo = "Centro"
+        _col_obs_2.caption("Astro puntual: se usa el centro del cuerpo para la lectura.")
 
     if "ultima_observacion" not in st.session_state:
         st.session_state.ultima_observacion = None
@@ -363,17 +465,31 @@ else:
     if st.button("🔭 Tomar Altura", key="btn_tomar_altura"):
         lat_real, lon_real = st.session_state.pos_real[-1]
         try:
-            _alt_real, _ = altura_cuerpo(_cuerpo_sel, lat_real, lon_real, _dt_utc)
-            _error_obs = 0.0
+            _obs_real = lectura_sextante(
+                _cuerpo_sel,
+                lat_real,
+                lon_real,
+                _dt_utc,
+                altura_ojo_m=_altura_ojo,
+                limbo=_limbo,
+            )
+            _error_obs_min = 0.0
             if "Medio" in dificultad:
-                _error_obs = random.uniform(-0.15, 0.15)
+                _error_obs_min = random.uniform(-0.15, 0.15)
             elif "Difícil" in dificultad:
-                _error_obs = random.uniform(-0.35, 0.35)
+                _error_obs_min = random.uniform(-0.35, 0.35)
 
-            _hs_obs = _alt_real + _error_obs
+            _hs_obs = _obs_real["hs"] + (_error_obs_min / 60.0)
             st.session_state.ultima_observacion = {
                 "cuerpo": _cuerpo_sel,
                 "hs": _hs_obs,
+                "altura_ojo_m": _altura_ojo,
+                "limbo": _limbo,
+                "az": _obs_real["az"],
+                "refraccion_min": _obs_real["refraccion_min"],
+                "dip_min": _obs_real["dip_min"],
+                "semidiametro_min": _obs_real["semidiametro_min"],
+                "error_obs_min": _error_obs_min,
                 "fecha": st.session_state.hora_actual.strftime("%d-%m-%Y %H:%M"),
             }
         except Exception as exc:
@@ -381,9 +497,35 @@ else:
 
     if st.session_state.ultima_observacion is not None:
         _obs = st.session_state.ultima_observacion
-        st.warning(f"Hs ({_obs['cuerpo']}): {formatear_grados_mm(_obs['hs'])}")
-        st.info(f"Para NavPac SIGHT: **{formatear_navpac_dmmss(_obs['hs'])}**")
-        st.caption(f"Lectura guardada: {_obs['fecha']} UTC · Skyfield · posición real del barco.")
+        _detalle_limbo = ""
+        if _obs["limbo"] != "Centro":
+            _detalle_limbo = f" · limbo {_obs['limbo'].lower()}"
+
+        st.warning(
+            f"Hs ({_obs['cuerpo']}{_detalle_limbo}): "
+            f"{formatear_grados_minutos_decimal(_obs['hs'])}"
+        )
+        st.info(
+            f"Para NavPac SIGHT (DD.MMSS): **{formatear_navpac_dmmss(_obs['hs'])}**"
+        )
+
+        _partes_obs = [
+            f"altura de ojo {_obs['altura_ojo_m']:.1f} m",
+            f"refracción +{_obs['refraccion_min']:.1f}'",
+            f"dip +{_obs['dip_min']:.1f}'",
+        ]
+        if _obs["semidiametro_min"] > 0 and _obs["limbo"] != "Centro":
+            signo_sd = "-" if _obs["limbo"] == "Inferior" else "+"
+            _partes_obs.append(
+                f"semidiámetro {signo_sd}{_obs['semidiametro_min']:.1f}'"
+            )
+        if abs(_obs["error_obs_min"]) > 1e-6:
+            _partes_obs.append(f"error simulado {_obs['error_obs_min']:+.1f}'")
+
+        st.caption(
+            f"Lectura guardada: {_obs['fecha']} UTC · posición real del barco · "
+            + " · ".join(_partes_obs)
+        )
 
 # 3. EL MAPA DE LA VERDAD
 st.header("3. Posicionamiento")
