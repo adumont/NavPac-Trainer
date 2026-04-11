@@ -519,10 +519,10 @@ else:
                 limbo=_limbo,
             )
             _error_obs_min = 0.0
-            if "Medio" in dificultad:
-                _error_obs_min = random.uniform(-0.15, 0.15)
-            elif "Difícil" in dificultad:
-                _error_obs_min = random.uniform(-0.35, 0.35)
+            # if "Medio" in dificultad:
+            #     _error_obs_min = random.uniform(-0.15, 0.15)
+            # elif "Difícil" in dificultad:
+            #     _error_obs_min = random.uniform(-0.35, 0.35)
 
             _hs_obs = _obs_real["hs"] + (_error_obs_min / 60.0)
             st.session_state.ultima_observacion = {
@@ -548,13 +548,14 @@ else:
             _detalle_limbo = f" · limbo {_obs['limbo'].lower()}"
 
 
-        st.warning(
-            f"Hs ({_obs['cuerpo']}{_detalle_limbo}): "
-            f"{formatear_grados_minutos_decimal(_obs['hs'])}"
-        )
-        st.info(
-            f"Para NavPac SIGHT (DD.MMSS): **{formatear_navpac_dmmss(_obs['hs'])}**"
-        )
+        # PARA SIGHT en NAVPAC
+        # st.warning(
+        #     f"Hs ({_obs['cuerpo']}{_detalle_limbo}): "
+        #     f"{formatear_grados_minutos_decimal(_obs['hs'])}"
+        # )
+        # st.info(
+        #     f"Para NavPac SIGHT (DD.MMSS): **{formatear_navpac_dmmss(_obs['hs'])}**"
+        # )
 
 
         # Mostrar nombre del cuerpo en mayúsculas, y para Sol/Luna añadir L/U según limbo
@@ -571,31 +572,42 @@ else:
                 cuerpo_navpac += "L"
             elif _obs['limbo'] == "Superior":
                 cuerpo_navpac += "U"
-        # Añadir número NavPac si es estrella conocida
-        if _obs['cuerpo'] in NAVPAC_STAR_INDEX:
-            st.success(f"Body Name: {cuerpo_navpac} (No. {NAVPAC_STAR_INDEX[_obs['cuerpo']]})")
-        else:
-            st.success(f"Body Name: {cuerpo_navpac}")
+        # # Añadir número NavPac si es estrella conocida
+        # if _obs['cuerpo'] in NAVPAC_STAR_INDEX:
+        #     st.success(f"Body Name: {cuerpo_navpac} (No. {NAVPAC_STAR_INDEX[_obs['cuerpo']]})")
+        # else:
+        #     st.success(f"Body Name: {cuerpo_navpac}")
+    
+        st.markdown(f"""
+### Observation Details
+Enter this in NavPac's `SIGHT` program. Then run `DR` to see your position estimate based on this observation.
+- Date: `{st.session_state.hora_actual.strftime("%m.%d%Y")}`
+- Time: `{st.session_state.hora_actual.strftime("%H:%M")} UTC`
+- He: `{_altura_ojo_ft:.1f} ft`
+- Hs: `{formatear_navpac_dmmss(_obs['hs'])}` ({formatear_grados_minutos_decimal(_obs['hs'])})
+- Body: {f"`{NAVPAC_STAR_INDEX[_obs['cuerpo']]}` (`{cuerpo_navpac}`)" if _obs['cuerpo'] in NAVPAC_STAR_INDEX else f"`{cuerpo_navpac}`"}
+""")
 
-        _altura_obs_ft = _obs.get("altura_ojo_ft", _obs.get("altura_ojo_m", 0.0) / 0.3048)
 
-        _partes_obs = [
-            f"altura de ojo {_altura_obs_ft:.1f} ft",
-            f"refracción +{_obs['refraccion_min']:.1f}'",
-            f"dip +{_obs['dip_min']:.1f}'",
-        ]
-        if _obs["semidiametro_min"] > 0 and _obs["limbo"] != "Centro":
-            signo_sd = "-" if _obs["limbo"] == "Inferior" else "+"
-            _partes_obs.append(
-                f"semidiámetro {signo_sd}{_obs['semidiametro_min']:.1f}'"
-            )
-        if abs(_obs["error_obs_min"]) > 1e-6:
-            _partes_obs.append(f"error simulado {_obs['error_obs_min']:+.1f}'")
+        # _altura_obs_ft = _obs.get("altura_ojo_ft", _obs.get("altura_ojo_m", 0.0) / 0.3048)
 
-        st.caption(
-            f"Lectura guardada: {_obs['fecha']} UTC · posición real del barco · "
-            + " · ".join(_partes_obs)
-        )
+        # _partes_obs = [
+        #     f"altura de ojo {_altura_obs_ft:.1f} ft",
+        #     f"refracción +{_obs['refraccion_min']:.1f}'",
+        #     f"dip +{_obs['dip_min']:.1f}'",
+        # ]
+        # if _obs["semidiametro_min"] > 0 and _obs["limbo"] != "Centro":
+        #     signo_sd = "-" if _obs["limbo"] == "Inferior" else "+"
+        #     _partes_obs.append(
+        #         f"semidiámetro {signo_sd}{_obs['semidiametro_min']:.1f}'"
+        #     )
+        # if abs(_obs["error_obs_min"]) > 1e-6:
+        #     _partes_obs.append(f"error simulado {_obs['error_obs_min']:+.1f}'")
+
+        # st.caption(
+        #     f"Lectura guardada: {_obs['fecha']} UTC · posición real del barco · "
+        #     + " · ".join(_partes_obs)
+        # )
 
 # 3. EL MAPA DE LA VERDAD
 st.header("3. Posicionamiento")
