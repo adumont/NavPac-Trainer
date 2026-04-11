@@ -543,11 +543,26 @@ else:
             f"Para NavPac SIGHT (DD.MMSS): **{formatear_navpac_dmmss(_obs['hs'])}**"
         )
 
-        # Mostrar nombre y número NavPac si es una estrella del índice
+
+        # Mostrar nombre del cuerpo en mayúsculas, y para Sol/Luna añadir L/U según limbo
+        # Mostrar SUN/MOON en vez de Sol/Luna
+        if _obs['cuerpo'] == "Sol":
+            cuerpo_upper = "SUN"
+        elif _obs['cuerpo'] == "Luna":
+            cuerpo_upper = "MOON"
+        else:
+            cuerpo_upper = _obs['cuerpo'].upper()
+        cuerpo_navpac = cuerpo_upper
+        if cuerpo_upper in ("SUN", "MOON"):
+            if _obs['limbo'] == "Inferior":
+                cuerpo_navpac += "L"
+            elif _obs['limbo'] == "Superior":
+                cuerpo_navpac += "U"
+        # Añadir número NavPac si es estrella conocida
         if _obs['cuerpo'] in NAVPAC_STAR_INDEX:
-            st.success(f"Estrella NavPac: {_obs['cuerpo']} (No. {NAVPAC_STAR_INDEX[_obs['cuerpo']]})")
-        elif _obs['cuerpo'] in CUERPOS_CELESTES and isinstance(CUERPOS_CELESTES[_obs['cuerpo']], Star):
-            st.info(f"Estrella seleccionada: {_obs['cuerpo']} (sin número NavPac en el índice)")
+            st.success(f"Body Name: {cuerpo_navpac} (No. {NAVPAC_STAR_INDEX[_obs['cuerpo']]})")
+        else:
+            st.success(f"Body Name: {cuerpo_navpac}")
 
         _altura_obs_ft = _obs.get("altura_ojo_ft", _obs.get("altura_ojo_m", 0.0) / 0.3048)
 
