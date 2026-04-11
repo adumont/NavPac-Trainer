@@ -17,6 +17,7 @@ TENERIFE = (28.4667, -16.2500)
 
 # Catálogo de cuerpos celestes navegables
 # Valor: string = clave en efemérides JPL | Star = estrella con coord J2000
+
 CUERPOS_CELESTES = {
     "Sol":        "sun",
     "Luna":       "moon",
@@ -39,6 +40,24 @@ CUERPOS_CELESTES = {
     "Regulus":    Star(ra_hours=10.1395, dec_degrees=11.9672),
     "Spica":      Star(ra_hours=13.4198, dec_degrees=-11.1614),
     "Antares":    Star(ra_hours=16.4901, dec_degrees=-26.4320),
+}
+
+# Mapeo de estrellas a su número NavPac (según la imagen)
+NAVPAC_STAR_INDEX = {
+    "Polaris": 0,
+    "Vega": 49,
+    "Sirius": 18,
+    "Arcturus": 37,
+    "Canopus": 17,
+    "Rigel": 11,
+    "Procyon": 20,
+    "Betelgeuse": 16,
+    "Altair": 51,
+    "Aldebaran": 10,
+    "Deneb": 53,
+    "Fomalhaut": 56,
+    "Regulus": 26,
+    "Antares": 42,
 }
 
 RADIOS_CUERPOS_KM = {
@@ -420,10 +439,22 @@ except Exception as _exc:
 if not _visibles:
     st.warning("No hay cuerpos celestes visibles (alt > 5°) a esta hora y posición. Avanza el tiempo.")
 else:
-    # Ordenar por altitud descendente y construir opciones legibles
+
+    # Ordenar: Sol y Luna siempre arriba si visibles, luego el resto por altitud descendente
     _ordenados = sorted(_visibles.items(), key=lambda x: -x[1][0])
     _sol_visible = "Sol" in _visibles
+    _luna_visible = "Luna" in _visibles
     _hay_estrellas = any(isinstance(CUERPOS_CELESTES[n], Star) for n in _visibles)
+
+    # Construir lista con Sol y Luna primero si están
+    _ordenados_final = []
+    if _sol_visible:
+        _ordenados_final.append(("Sol", _visibles["Sol"]))
+    if _luna_visible:
+        _ordenados_final.append(("Luna", _visibles["Luna"]))
+    for n, v in _ordenados:
+        if n not in ("Sol", "Luna"):
+            _ordenados_final.append((n, v))
 
     if _sol_visible:
         st.caption("☀️ El Sol está sobre el horizonte. Observación diurna posible.")
@@ -432,7 +463,7 @@ else:
 
     _opciones_mapa = {
         f"{n}  —  alt {formatear_grados_mm(a)}  az {int(z):03d}°": n
-        for n, (a, z) in _ordenados
+        for n, (a, z) in _ordenados_final
     }
     _sel_str = st.selectbox("Cuerpo a observar:", list(_opciones_mapa.keys()))
     _cuerpo_sel = _opciones_mapa[_sel_str]
@@ -503,6 +534,7 @@ else:
         if _obs["limbo"] != "Centro":
             _detalle_limbo = f" · limbo {_obs['limbo'].lower()}"
 
+
         st.warning(
             f"Hs ({_obs['cuerpo']}{_detalle_limbo}): "
             f"{formatear_grados_minutos_decimal(_obs['hs'])}"
@@ -510,6 +542,12 @@ else:
         st.info(
             f"Para NavPac SIGHT (DD.MMSS): **{formatear_navpac_dmmss(_obs['hs'])}**"
         )
+
+        # Mostrar nombre y número NavPac si es una estrella del índice
+        if _obs['cuerpo'] in NAVPAC_STAR_INDEX:
+            st.success(f"Estrella NavPac: {_obs['cuerpo']} (No. {NAVPAC_STAR_INDEX[_obs['cuerpo']]})")
+        elif _obs['cuerpo'] in CUERPOS_CELESTES and isinstance(CUERPOS_CELESTES[_obs['cuerpo']], Star):
+            st.info(f"Estrella seleccionada: {_obs['cuerpo']} (sin número NavPac en el índice)")
 
         _altura_obs_ft = _obs.get("altura_ojo_ft", _obs.get("altura_ojo_m", 0.0) / 0.3048)
 
