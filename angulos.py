@@ -1,4 +1,53 @@
-def dms_texto_a_decimal(texto, es_latitud=True):
+import math
+import re
+from dataclasses import dataclass
+
+from tipos import Position
+
+
+def parse_dms(value: str) -> float:
+    """
+    Convierte DDºmm:ss (o variantes) a grados decimales.
+
+    Soporta:
+    - 40º26'46"N
+    - 40 26 46 N
+    - -40º26:46
+    - 3º42'W
+    """
+    value = value.strip().upper()
+
+    sign = 1
+
+    if "S" in value or "W" in value:
+        sign = -1
+
+    # quitar letras
+    value = re.sub(r"[NSEW]", "", value)
+
+    parts = re.split(r"[^\d.]+", value)
+    parts = [p for p in parts if p]
+
+    if not parts:
+        raise ValueError(f"Formato inválido: {value}")
+
+    deg = float(parts[0])
+    minutes = float(parts[1]) if len(parts) > 1 else 0
+    seconds = float(parts[2]) if len(parts) > 2 else 0
+
+    decimal = deg + minutes / 60 + seconds / 3600
+
+    return sign * decimal
+
+
+def parse_lat_lon(lat_str: str, lon_str: str) -> Position:
+    return Position(
+        lat=parse_dms(lat_str),
+        lon=parse_dms(lon_str),
+    )
+
+
+def dms_texto_a_decimal(texto: str, es_latitud: bool = True) -> float:
     """Convierte un texto en formato DMS (DDºmm:ss H) a decimal. Ejemplo: '36º31:39 N' -> 36.5275"""
     import re
 
@@ -37,7 +86,8 @@ def dms_texto_a_decimal(texto, es_latitud=True):
     return valor
 
 
-def formatear_angulo_dms(valor, es_latitud=True):
+def formatear_angulo_dms(valor: float, es_latitud: bool = True) -> str:
+    """Formatea un ángulo decimal a DMS con hemisferio. Ejemplo: 36.5275 -> '36º31:39 N'"""
     abs_val = abs(valor)
     grados = int(abs_val)
     minutos_float = (abs_val - grados) * 60
@@ -59,7 +109,7 @@ def formatear_angulo_dms(valor, es_latitud=True):
     return f"{grados:02d}º{minutos:02d}:{segundos:02d} {hemisferio}"
 
 
-def formatear_lat_lon_dms(lat, lon):
+def formatear_lat_lon_dms(lat: float, lon: float) -> tuple[str, str]:
     """Devuelve tupla (lat_dms, lon_dms) con formato DMS para latitud y longitud.
     Ejemplo: 36.5275, -6.2833 -> ('36º31:39 N', '06º17:00 W')"""
     return (
@@ -68,7 +118,11 @@ def formatear_lat_lon_dms(lat, lon):
     )
 
 
-def formatear_navpac_dmmss(valor):
+def formatear_position(pos: Position) -> tuple[str, str]:
+    """Formatea una posición a DMS con hemisferio. Ejemplo: Position(36.5275, -6.2833) -> ('36º31:39 N', '06º17:00 W')"""
+    return formatear_lat_lon_dms(pos.lat, pos.lon)
+
+def formatear_navpac_dmmss(valor: float) -> str:
     """Formatea un ángulo decimal a DD.MMSS con minutos y segundos redondeados.
     Ejemplo: 36.5275 -> 36.3159 (31 minutos y 39 segundos)"""
     signo = "-" if valor < 0 else ""
@@ -88,7 +142,7 @@ def formatear_navpac_dmmss(valor):
     return f"{signo}{grados}.{minutos:02d}{segundos:02d}"
 
 
-def formatear_grados_mm(valor):
+def formatear_grados_mm(valor: float) -> str:
     """Formatea un ángulo decimal a DDMm con minutos redondeados.
     Ejemplo: 36.5275 -> 36º31' (redondeando minutos)"""
     signo = "-" if valor < 0 else ""
@@ -103,7 +157,7 @@ def formatear_grados_mm(valor):
     return f"{signo}{grados:02d}º{minutos:02d}"
 
 
-def formatear_grados_minutos_decimal(valor, decimales_minutos=1):
+def formatear_grados_minutos_decimal(valor: float, decimales_minutos: int = 1) -> str:
     """Formatea un ángulo decimal a DDM.mmm con el número especificado de decimales en los minutos.
     Ejemplo: 36.5275 con decimales_minutos=1 -> 36º31.6'"""
     signo = "-" if valor < 0 else ""

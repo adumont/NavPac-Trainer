@@ -14,7 +14,8 @@ from angulos import (
     formatear_navpac_dmmss,
     dms_texto_a_decimal,
     formatear_grados_minutos_decimal,
-    formatear_grados_mm
+    formatear_grados_mm,
+    formatear_position,
 )
 
 # --- CONFIGURACIÓN Y ESTADO ---
@@ -32,27 +33,27 @@ with nav_tab:
     # Valor: string = clave en efemérides JPL | Star = estrella con coord J2000
 
     CUERPOS_CELESTES = {
-        "Sol":        "sun",
-        "Luna":       "moon",
-        "Venus":      "venus",
-        "Marte":      "mars",
-        "Júpiter":    "jupiter barycenter",
-        "Saturno":    "saturn barycenter",
-        "Polaris":    Star(ra_hours=2.5303,  dec_degrees=89.2641),
-        "Vega":       Star(ra_hours=18.6157, dec_degrees=38.7836),
-        "Sirius":     Star(ra_hours=6.7525,  dec_degrees=-16.7161),
-        "Arcturus":   Star(ra_hours=14.2612, dec_degrees=19.1822),
-        "Canopus":    Star(ra_hours=6.3992,  dec_degrees=-52.6957),
-        "Rigel":      Star(ra_hours=5.2423,  dec_degrees=-8.2017),
-        "Procyon":    Star(ra_hours=7.6553,  dec_degrees=5.2250),
-        "Betelgeuse": Star(ra_hours=5.9195,  dec_degrees=7.4071),
-        "Altair":     Star(ra_hours=19.8459, dec_degrees=8.8683),
-        "Aldebaran":  Star(ra_hours=4.5987,  dec_degrees=16.5093),
-        "Deneb":      Star(ra_hours=20.6905, dec_degrees=45.2803),
-        "Fomalhaut":  Star(ra_hours=22.9608, dec_degrees=-29.6222),
-        "Regulus":    Star(ra_hours=10.1395, dec_degrees=11.9672),
-        "Spica":      Star(ra_hours=13.4198, dec_degrees=-11.1614),
-        "Antares":    Star(ra_hours=16.4901, dec_degrees=-26.4320),
+        "Sol": "sun",
+        "Luna": "moon",
+        "Venus": "venus",
+        "Marte": "mars",
+        "Júpiter": "jupiter barycenter",
+        "Saturno": "saturn barycenter",
+        "Polaris": Star(ra_hours=2.5303, dec_degrees=89.2641),
+        "Vega": Star(ra_hours=18.6157, dec_degrees=38.7836),
+        "Sirius": Star(ra_hours=6.7525, dec_degrees=-16.7161),
+        "Arcturus": Star(ra_hours=14.2612, dec_degrees=19.1822),
+        "Canopus": Star(ra_hours=6.3992, dec_degrees=-52.6957),
+        "Rigel": Star(ra_hours=5.2423, dec_degrees=-8.2017),
+        "Procyon": Star(ra_hours=7.6553, dec_degrees=5.2250),
+        "Betelgeuse": Star(ra_hours=5.9195, dec_degrees=7.4071),
+        "Altair": Star(ra_hours=19.8459, dec_degrees=8.8683),
+        "Aldebaran": Star(ra_hours=4.5987, dec_degrees=16.5093),
+        "Deneb": Star(ra_hours=20.6905, dec_degrees=45.2803),
+        "Fomalhaut": Star(ra_hours=22.9608, dec_degrees=-29.6222),
+        "Regulus": Star(ra_hours=10.1395, dec_degrees=11.9672),
+        "Spica": Star(ra_hours=13.4198, dec_degrees=-11.1614),
+        "Antares": Star(ra_hours=16.4901, dec_degrees=-26.4320),
     }
 
     # Mapeo de estrellas a su número NavPac (según la imagen)
@@ -91,7 +92,6 @@ with nav_tab:
     if "log_fixes" not in st.session_state:
         st.session_state.log_fixes = []
 
-
     # --- MATEMÁTICA NAVAL ---
     def mover_barco(lat, lon, rumbo, distancia):
         R = 3440.065  # Radio terrestre en millas náuticas
@@ -108,7 +108,6 @@ with nav_tab:
         )
         return math.degrees(lat2), math.degrees(lon2)
 
-
     @st.cache_resource
     def cargar_skyfield():
         base_dir = Path(__file__).resolve().parent
@@ -123,15 +122,15 @@ with nav_tab:
 
         return ts, eph
 
-
     def observacion_aparente(nombre, lat, lon, dt_utc):
         ts, eph = cargar_skyfield()
         t = ts.from_datetime(dt_utc)
-        observer = eph["earth"] + wgs84.latlon(latitude_degrees=lat, longitude_degrees=lon)
+        observer = eph["earth"] + wgs84.latlon(
+            latitude_degrees=lat, longitude_degrees=lon
+        )
         cuerpo_id = CUERPOS_CELESTES[nombre]
         cuerpo = eph[cuerpo_id] if isinstance(cuerpo_id, str) else cuerpo_id
         return observer.at(t).observe(cuerpo).apparent()
-
 
     def altura_cuerpo(nombre, lat, lon, dt_utc):
         """Devuelve la altitud verdadera del centro (sin refracción) y azimut."""
@@ -139,19 +138,16 @@ with nav_tab:
         alt, az, _ = apparent.altaz()
         return alt.degrees, az.degrees
 
-
     def correccion_dip_minutos(altura_ojo_m):
         if altura_ojo_m <= 0:
             return 0.0
         return 1.76 * math.sqrt(altura_ojo_m)
-
 
     def semidiametro_minutos(nombre, distancia_km):
         radio_km = RADIOS_CUERPOS_KM.get(nombre)
         if radio_km is None or distancia_km <= 0:
             return 0.0
         return math.degrees(math.asin(min(1.0, radio_km / distancia_km))) * 60.0
-
 
     def lectura_sextante(nombre, lat, lon, dt_utc, altura_ojo_m=3.048, limbo="Centro"):
         apparent = observacion_aparente(nombre, lat, lon, dt_utc)
@@ -184,7 +180,6 @@ with nav_tab:
             "limbo": limbo,
         }
 
-
     def cuerpos_visibles(lat, lon, dt_utc, alt_min=5.0):
         """Devuelve dict {nombre: (alt, az)} para cuerpos por encima de alt_min grados."""
         resultado = {}
@@ -196,7 +191,6 @@ with nav_tab:
             except Exception:
                 pass
         return resultado
-
 
     def distancia_nmi(lat1, lon1, lat2, lon2):
         # Distancia ortodrómica con radio terrestre medio en millas náuticas.
@@ -213,7 +207,6 @@ with nav_tab:
         c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
         return r_nmi * c
 
-
     # --- INTERFAZ ---
     st.title("⛵ NavPac Simulator: Cádiz ➡️ Canarias")
 
@@ -223,14 +216,18 @@ with nav_tab:
         with col_a:
             st.markdown("### 📍 Posición de Salida")
             cadiz_lat_dms, cadiz_lon_dms = formatear_lat_lon_dms(CADIZ[0], CADIZ[1])
-            st.code(f"Cádiz\nLat: {cadiz_lat_dms}\nLon: {cadiz_lon_dms}", language="text")
-        
+            st.code(
+                f"Cádiz\nLat: {cadiz_lat_dms}\nLon: {cadiz_lon_dms}", language="text"
+            )
+
         with col_b:
             st.markdown("### 📅 Cronómetro UTC")
             # Mostramos la hora de salida fija y la hora actual del simulador
             hora_salida = datetime.datetime(2026, 5, 15, 8, 0)
             st.write(f"**Salida:** {hora_salida.strftime('%d-%m-%Y %H:%M')} UTC")
-            st.write(f"**Actual:** {st.session_state.hora_actual.strftime('%d-%m-%Y %H:%M')} UTC")
+            st.write(
+                f"**Actual:** {st.session_state.hora_actual.strftime('%d-%m-%Y %H:%M')} UTC"
+            )
             st.caption("Usa esta fecha/hora para el Almanaque Náutico de la HP-41C.")
 
         with col_c:
@@ -243,7 +240,9 @@ with nav_tab:
                 language="text",
             )
 
-        st.info("💡 Consejo NavPac: Recuerda que para el programa 'SIGHT', la hora UTC es vital para obtener el GHA y la Dec del astro.")
+        st.info(
+            "💡 Consejo NavPac: Recuerda que para el programa 'SIGHT', la hora UTC es vital para obtener el GHA y la Dec del astro."
+        )
 
     # --- SIDEBAR: CONFIGURACIÓN ---
     dificultad = st.sidebar.radio(
@@ -260,7 +259,7 @@ with nav_tab:
     horas_hhmm = c3.text_input(
         "Tiempo (HH:MM)",
         value="04:00",
-        help="Introduce el tiempo en formato HH:MM (ejemplo: 12:30)"
+        help="Introduce el tiempo en formato HH:MM (ejemplo: 12:30)",
     )
     # Convert HH:MM to decimal hours
     _horas_match = re.match(r"^\s*(\d{1,2}):(\d{2})\s*$", horas_hhmm)
@@ -269,7 +268,6 @@ with nav_tab:
     else:
         st.error("Formato de tiempo inválido. Usa HH:MM (ejemplo: 12:30)")
         horas = 0.0
-
 
     if st.button("Navegar"):
         st.session_state.hora_actual += datetime.timedelta(hours=horas)
@@ -285,9 +283,15 @@ with nav_tab:
 
         if velocidad == 0:
             # Barco parado: solo actúan corrientes/deriva según dificultad
-            deriva_vel = {"Calma (Fácil)": 0.15, "Moderado (Medio)": 0.35, "Temporal (Difícil)": 0.8}.get(dificultad, 0.15)
+            deriva_vel = {
+                "Calma (Fácil)": 0.15,
+                "Moderado (Medio)": 0.35,
+                "Temporal (Difícil)": 0.8,
+            }.get(dificultad, 0.15)
             deriva_rumbo = random.uniform(0, 360)
-            n_lat_re, n_lon_re = mover_barco(u_lat_re, u_lon_re, deriva_rumbo, deriva_vel * horas)
+            n_lat_re, n_lon_re = mover_barco(
+                u_lat_re, u_lon_re, deriva_rumbo, deriva_vel * horas
+            )
         else:
             err_r, err_v = 0, 0
             if "Medio" in dificultad:
@@ -295,7 +299,9 @@ with nav_tab:
             elif "Difícil" in dificultad:
                 err_r, err_v = random.uniform(-7, 7), random.uniform(-1.2, 1.2)
             vel_real = max(0.0, velocidad + err_v)
-            n_lat_re, n_lon_re = mover_barco(u_lat_re, u_lon_re, rumbo + err_r, vel_real * horas)
+            n_lat_re, n_lon_re = mover_barco(
+                u_lat_re, u_lon_re, rumbo + err_r, vel_real * horas
+            )
 
         st.session_state.pos_real = st.session_state.pos_real + [(n_lat_re, n_lon_re)]
 
@@ -313,7 +319,9 @@ with nav_tab:
             "Lon Real": formatear_angulo_dms(n_lon_re, es_latitud=False),
             "Error (nmi)": round(diff_nmi, 2),
         }
-        st.session_state.log_navegacion = st.session_state.log_navegacion + [nueva_entrada]
+        st.session_state.log_navegacion = st.session_state.log_navegacion + [
+            nueva_entrada
+        ]
 
         st.success(
             f"Navegación completada. Hora actual: {st.session_state.hora_actual.strftime('%H:%M')} UTC"
@@ -333,7 +341,9 @@ with nav_tab:
         st.error(f"Error al calcular cuerpos visibles: {_exc}")
 
     if not _visibles:
-        st.warning("No hay cuerpos celestes visibles (alt > 5°) a esta hora y posición. Avanza el tiempo.")
+        st.warning(
+            "No hay cuerpos celestes visibles (alt > 5°) a esta hora y posición. Avanza el tiempo."
+        )
     else:
 
         # Ordenar: Sol y Luna siempre arriba si visibles, luego el resto por altitud descendente
@@ -385,7 +395,9 @@ with nav_tab:
             )
         else:
             _limbo = "Centro"
-            _col_obs_2.caption("Astro puntual: se usa el centro del cuerpo para la lectura.")
+            _col_obs_2.caption(
+                "Astro puntual: se usa el centro del cuerpo para la lectura."
+            )
 
         if "ultima_observacion" not in st.session_state:
             st.session_state.ultima_observacion = None
@@ -430,7 +442,6 @@ with nav_tab:
             if _obs["limbo"] != "Centro":
                 _detalle_limbo = f" · limbo {_obs['limbo'].lower()}"
 
-
             # PARA SIGHT en NAVPAC
             # st.warning(
             #     f"Hs ({_obs['cuerpo']}{_detalle_limbo}): "
@@ -440,28 +451,28 @@ with nav_tab:
             #     f"Para NavPac SIGHT (DD.MMSS): **{formatear_navpac_dmmss(_obs['hs'])}**"
             # )
 
-
             # Mostrar nombre del cuerpo en mayúsculas, y para Sol/Luna añadir L/U según limbo
             # Mostrar SUN/MOON en vez de Sol/Luna
-            if _obs['cuerpo'] == "Sol":
+            if _obs["cuerpo"] == "Sol":
                 cuerpo_upper = "SUN"
-            elif _obs['cuerpo'] == "Luna":
+            elif _obs["cuerpo"] == "Luna":
                 cuerpo_upper = "MOON"
             else:
-                cuerpo_upper = _obs['cuerpo'].upper()
+                cuerpo_upper = _obs["cuerpo"].upper()
             cuerpo_navpac = cuerpo_upper
             if cuerpo_upper in ("SUN", "MOON"):
-                if _obs['limbo'] == "Inferior":
+                if _obs["limbo"] == "Inferior":
                     cuerpo_navpac += "L"
-                elif _obs['limbo'] == "Superior":
+                elif _obs["limbo"] == "Superior":
                     cuerpo_navpac += "U"
             # # Añadir número NavPac si es estrella conocida
             # if _obs['cuerpo'] in NAVPAC_STAR_INDEX:
             #     st.success(f"Body Name: {cuerpo_navpac} (No. {NAVPAC_STAR_INDEX[_obs['cuerpo']]})")
             # else:
             #     st.success(f"Body Name: {cuerpo_navpac}")
-        
-            st.markdown(f"""
+
+            st.markdown(
+                f"""
     ### Observation Details
     Enter this in NavPac's `SIGHT` program. Then run `DR` to see your position estimate based on this observation.
     - Date: `{st.session_state.hora_actual.strftime("%m.%d%Y")}`
@@ -469,8 +480,8 @@ with nav_tab:
     - He: `{_altura_ojo_ft:.1f} ft`
     - Hs: `{formatear_navpac_dmmss(_obs['hs'])}` ({formatear_grados_minutos_decimal(_obs['hs'])})
     - Body: {f"`{NAVPAC_STAR_INDEX[_obs['cuerpo']]}` (`{cuerpo_navpac}`)" if _obs['cuerpo'] in NAVPAC_STAR_INDEX else f"`{cuerpo_navpac}`"}
-    """)
-
+    """
+            )
 
             # _altura_obs_ft = _obs.get("altura_ojo_ft", _obs.get("altura_ojo_m", 0.0) / 0.3048)
 
@@ -502,7 +513,9 @@ with nav_tab:
     if "fix_lat_texto" not in st.session_state:
         st.session_state.fix_lat_texto = formatear_angulo_dms(u_lat_dr, es_latitud=True)
     if "fix_lon_texto" not in st.session_state:
-        st.session_state.fix_lon_texto = formatear_angulo_dms(u_lon_dr, es_latitud=False)
+        st.session_state.fix_lon_texto = formatear_angulo_dms(
+            u_lon_dr, es_latitud=False
+        )
 
     fix_lat_texto = col_lat.text_input(
         "Latitud de tu Fix (DDºmm:ss)",
@@ -536,7 +549,9 @@ with nav_tab:
 
     if st.button("🗺️ Revelar Posición Real"):
         if not fix_valido:
-            st.error("No se puede revelar con Fix inválido. Revisa el formato DDºmm:ss.")
+            st.error(
+                "No se puede revelar con Fix inválido. Revisa el formato DDºmm:ss."
+            )
             st.stop()
 
         st.session_state.revelado = True
@@ -573,8 +588,12 @@ with nav_tab:
     for i, (lat, lon) in enumerate(st.session_state.pos_dr):
         tooltip = "Salida (Estima)" if i == 0 else f"Estima #{i}"
         folium.CircleMarker(
-            location=(lat, lon), radius=5, color="blue", fill=True,
-            fill_opacity=0.85, tooltip=tooltip,
+            location=(lat, lon),
+            radius=5,
+            color="blue",
+            fill=True,
+            fill_opacity=0.85,
+            tooltip=tooltip,
         ).add_to(m)
 
     # --- Track real + marcadores (solo si revelado) ---
@@ -584,8 +603,12 @@ with nav_tab:
         for i, (lat, lon) in enumerate(st.session_state.pos_real):
             tooltip = "Salida (real)" if i == 0 else f"Posición real #{i}"
             folium.CircleMarker(
-                location=(lat, lon), radius=5, color="red", fill=True,
-                fill_opacity=0.85, tooltip=tooltip,
+                location=(lat, lon),
+                radius=5,
+                color="red",
+                fill=True,
+                fill_opacity=0.85,
+                tooltip=tooltip,
             ).add_to(m)
         # Fix del navegante
         if st.session_state.fix_revelado is not None:
@@ -628,10 +651,10 @@ with nav_tab:
         st.dataframe(df_fixes, use_container_width=True, hide_index=True)
 
 with fix_tab:
-    st.title("LOP grapher and FIX calculator")
+    st.title("FIX calculator")
 
     st.caption("Estimated position:")
-    
+
     # Input DR lat/lon (DDºmm:ss),  two  columns
     col_dr_lat, col_dr_lon = st.columns(2)
     dr_lat_texto = col_dr_lat.text_input(
@@ -640,8 +663,16 @@ with fix_tab:
     )
     dr_lon_texto = col_dr_lon.text_input(
         "DR Longitude",
-        value="006º17:00 W",
+        value="6º17:00 W",
     )
+
+    from angulos import parse_dms
+
+    # we write the converted decimal DR position below the inputs, or an error if the format is invalid
+    dr_lat_decimal = parse_dms(dr_lat_texto)
+    dr_lon_decimal = parse_dms(dr_lon_texto)
+    st.write(f"DR Latitude (decimal): {dr_lat_decimal}")
+    st.write(f"DR Longitude (decimal): {dr_lon_decimal}")
 
     # now we can input up to 3 altitude intercept (a float A|T) and the azimuth (ZN float, ZN represents the azimuth measured from the north)
 
@@ -650,10 +681,46 @@ with fix_tab:
     col_a1, col_a2, col_a3 = st.columns(3)
     a1 = col_a1.text_input("a1 (altitude intercept)", value="10.5 A")
     a2 = col_a2.text_input("a2 (altitude intercept)", value="8.2 T")
-    a3 = col_a3.text_input("a3 (altitude intercept)", value="5.0 A")
+    a3 = col_a3.text_input("a3 (altitude intercept)", value="")
     # Second row: zn1, zn2, zn3
     col_zn1, col_zn2, col_zn3 = st.columns(3)
     zn1 = col_zn1.text_input("ZN1 (azimuth from north)", value=45.0)
     zn2 = col_zn2.text_input("ZN2 (azimuth from north)", value=120.0)
-    zn3 = col_zn3.text_input("ZN3 (azimuth from north)", value=200.0)
+    zn3 = col_zn3.text_input("ZN3 (azimuth from north)", value="")
 
+    # Show FIX:
+    from lop import compute_fix_multi
+    from tipos import LOP, Position
+
+    dr = Position(lat=dr_lat_decimal, lon=dr_lon_decimal)
+
+    lops = []
+    for a, zn in [(a1, zn1), (a2, zn2), (a3, zn3)]:
+        if not a.strip() or not zn.strip():
+            continue
+        try:
+            a_val = float(a[:-1].strip())
+            zn_val = float(zn)
+            lops.append(LOP(a_val, zn_val))
+        except ValueError:
+            st.warning(
+                f"Invalid input for a or ZN: '{a}' or '{zn}'. Skipping this LOP."
+            )
+
+    st.write("### Fix result:")
+    col1, col2 = st.columns(2)
+    if len(lops) >= 2:
+        fix = compute_fix_multi(dr, lops)
+
+        col1.text_input(
+            "Fix Latitude",
+            value=formatear_angulo_dms(fix.lat, es_latitud=True)
+        )
+        col2.text_input(
+            "Fix Longitude",
+            value=formatear_angulo_dms(fix.lon, es_latitud=False)
+        )
+    else:
+        st.warning(
+            "Please enter at least two valid altitude intercept (a) and azimuth (ZN) to compute the FIX."
+        )
