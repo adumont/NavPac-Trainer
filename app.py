@@ -345,6 +345,7 @@ with nav_tab:
                 "Date&¡/Time UTC": st.session_state.hora_actual.strftime(
                     "%d-%m-%Y %H:%M"
                 ),
+                "DR": f"{formatear_angulo_dms(_lat_obs, es_latitud=True)}, {formatear_angulo_dms(_lon_obs, es_latitud=False)}",
                 "Altura Ojo (ft)": _obs["altura_ojo_ft"],
                 "Refracción (min)": round(_obs["refraccion_min"], 2),
                 "Dip (min)": round(_obs["dip_min"], 2),
