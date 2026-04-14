@@ -48,6 +48,7 @@ with nav_tab:
         st.session_state.fixes = []
         st.session_state.log_navegacion = []
         st.session_state.iniciado = True
+        st.session_state.log_observaciones = []
 
     if "log_navegacion" not in st.session_state:
         st.session_state.log_navegacion = []
@@ -313,15 +314,6 @@ with nav_tab:
             if _obs["limbo"] != "Centro":
                 _detalle_limbo = f" · limbo {_obs['limbo'].lower()}"
 
-            # PARA SIGHT en NAVPAC
-            # st.warning(
-            #     f"Hs ({_obs['cuerpo']}{_detalle_limbo}): "
-            #     f"{formatear_grados_minutos_decimal(_obs['hs'])}"
-            # )
-            # st.info(
-            #     f"Para NavPac SIGHT (DD.MMSS): **{formatear_navpac_dmmss(_obs['hs'])}**"
-            # )
-
             # Mostrar nombre del cuerpo en mayúsculas, y para Sol/Luna añadir L/U según limbo
             # Mostrar SUN/MOON en vez de Sol/Luna
             if _obs["cuerpo"] == "Sol":
@@ -336,11 +328,6 @@ with nav_tab:
                     cuerpo_navpac += "L"
                 elif _obs["limbo"] == "Superior":
                     cuerpo_navpac += "U"
-            # # Añadir número NavPac si es estrella conocida
-            # if _obs['cuerpo'] in NAVPAC_STAR_INDEX:
-            #     st.success(f"Body Name: {cuerpo_navpac} (No. {NAVPAC_STAR_INDEX[_obs['cuerpo']]})")
-            # else:
-            #     st.success(f"Body Name: {cuerpo_navpac}")
 
             st.markdown(
                 f"""
@@ -352,6 +339,37 @@ with nav_tab:
     - Hs: `{formatear_navpac_dmmss(_obs['hs'])}` ({formatear_grados_minutos_decimal(_obs['hs'])})
     - Body: {f"`{NAVPAC_STAR_INDEX[_obs['cuerpo']]}` (`{cuerpo_navpac}`)" if _obs['cuerpo'] in NAVPAC_STAR_INDEX else f"`{cuerpo_navpac}`"}
     """
+            )
+
+            entrada_observacion = {
+                "Date&¡/Time UTC": st.session_state.hora_actual.strftime(
+                    "%d-%m-%Y %H:%M"
+                ),
+                "Altura Ojo (ft)": _obs["altura_ojo_ft"],
+                "Refracción (min)": round(_obs["refraccion_min"], 2),
+                "Dip (min)": round(_obs["dip_min"], 2),
+                "Body": cuerpo_navpac,
+                "Azimuth (º)": round(_obs["az"], 2),
+                "Semidiametro (min)": round(_obs["semidiametro_min"], 2),
+                "Hs (DMMSS)": formatear_navpac_dmmss(_obs["hs"]),
+                "Hs (decimal)": round(_obs["hs"], 4),
+            }
+            st.session_state.log_observaciones = st.session_state.log_observaciones + [
+                entrada_observacion
+            ]
+            st.session_state.ultima_observacion = (
+                None  # Limpiar la última observación después de registrarla
+            )
+
+        if st.session_state.log_observaciones:
+            st.subheader("Registro de Observaciones")
+            import pandas as pd
+
+            df_obs = pd.DataFrame(st.session_state.log_observaciones)
+            st.dataframe(df_obs, use_container_width=True, hide_index=True)
+        else:
+            st.info(
+                "Aún no has tomado ninguna observación. Usa el botón 'Tomar Altura' para registrar tu primera observación astronómica."
             )
 
     # 4. EL MAPA DE LA VERDAD
