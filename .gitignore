@@ -27,3 +27,4 @@ pytest_output*.txt
 pytest_err*.txt
 pytest_phase*.txt
 *.log
+.skyfield/de421.bsp
