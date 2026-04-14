@@ -707,19 +707,21 @@ with fix_tab:
                 f"Invalid input for a or ZN: '{a}' or '{zn}'. Skipping this LOP."
             )
 
-    st.write("### Fix result:")
-    col1, col2 = st.columns(2)
     if len(lops) >= 2:
         fix = compute_fix_multi(dr, lops)
 
-        col1.text_input(
-            "Fix Latitude",
-            value=formatear_angulo_dms(fix.lat, es_latitud=True)
+        st.write("### Fix result:")
+        st.markdown(
+            f"""
+
+```
+Fix Latitude : {formatear_angulo_dms(fix.lat, es_latitud=True)}
+Fix Longitude: {formatear_angulo_dms(fix.lon, es_latitud=False)}
+```             
+
+"""
         )
-        col2.text_input(
-            "Fix Longitude",
-            value=formatear_angulo_dms(fix.lon, es_latitud=False)
-        )
+
     else:
         st.warning(
             "Please enter at least two valid altitude intercept (a) and azimuth (ZN) to compute the FIX."
