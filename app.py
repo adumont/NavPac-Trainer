@@ -6,6 +6,7 @@ import re
 import folium
 from streamlit_folium import st_folium
 from skyfield.api import Star
+import pandas as pd
 
 from angulos import (
     formatear_angulo_dms,
@@ -31,34 +32,31 @@ from navigation import (
 # --- CONFIGURACIÓN Y ESTADO ---
 st.set_page_config(page_title="NavPac Simulator MVP", layout="wide")
 
+if "iniciado" not in st.session_state:
+    st.session_state.hora_actual = datetime.datetime(2026, 5, 15, 8, 0)
+    st.session_state.pos_real = [CADIZ]
+    st.session_state.pos_dr = [CADIZ]
+    st.session_state.fixes = []
+    st.session_state.log_navegacion = []
+    st.session_state.iniciado = True
+    st.session_state.log_observaciones = []
+
+if "log_navegacion" not in st.session_state:
+    st.session_state.log_navegacion = []
+if "log_fixes" not in st.session_state:
+    st.session_state.log_fixes = []
+
 # --- SIDEBAR: CONFIGURACIÓN ---
 dificultad = st.sidebar.radio(
     "🌊 Estado del Mar",
     options=["Calma (Fácil)", "Moderado (Medio)", "Temporal (Difícil)"],
 )
 
-nav_tab, fix_tab = st.tabs(["Navegacion", "FIX"])
+# -- TABS ---
+tab_ruta, tab_nav, tab_sextant, tab_fix = st.tabs(["Ruta", "Navegacion", "Sextante", "Fix Calculator"])
 
-with nav_tab:
-
-    if "iniciado" not in st.session_state:
-        st.session_state.hora_actual = datetime.datetime(2026, 5, 15, 8, 0)
-        st.session_state.pos_real = [CADIZ]
-        st.session_state.pos_dr = [CADIZ]
-        st.session_state.fixes = []
-        st.session_state.log_navegacion = []
-        st.session_state.iniciado = True
-        st.session_state.log_observaciones = []
-
-    if "log_navegacion" not in st.session_state:
-        st.session_state.log_navegacion = []
-    if "log_fixes" not in st.session_state:
-        st.session_state.log_fixes = []
-
-    # --- INTERFAZ ---
+with tab_ruta:
     st.title("⛵ NavPac Simulator: Cádiz ➡️ Canarias")
-
-    # --- CUADERNO DE BITÁCORA (DATOS PARA LA HP-41C) ---
     with st.expander("📖 Cuaderno de Bitácora - Datos de Misión", expanded=True):
         col_a, col_b, col_c = st.columns(3)
         with col_a:
@@ -88,8 +86,9 @@ with nav_tab:
                 language="text",
             )
 
+with tab_nav:
     # 1. EL TIMÓN
-    st.header("1. Órdenes a Máquinas")
+    st.subheader("Órdenes a Máquinas")
     c1, c2, c3 = st.columns(3)
     rumbo = c1.number_input("Rumbo (º)", 0, 359, 229)
     velocidad = c2.number_input("Velocidad (nudos)", 0, 20, 6)
@@ -171,7 +170,7 @@ with nav_tab:
         st.rerun()
 
     # 2. Dead Reckoning
-    st.header("2. Dead Reckoning")
+    st.subheader("Dead Reckoning")
 
     st.write(
         f"Use `DR` in NavPac with the inputs above (Rumbo = `{rumbo}º`, Velocidad x Tiempo = `{velocidad * horas} nmi`) to see your estimated position based on Dead Reckoning. Enter it below:"
@@ -196,10 +195,35 @@ with nav_tab:
             dr_lat = dms_texto_a_decimal(dr_lat_texto, es_latitud=True)
             dr_lon = dms_texto_a_decimal(dr_lon_texto, es_latitud=False)
             st.session_state.pos_dr[-1] = (dr_lat, dr_lon)
+
+            # update values in st.session_state.log_navegacion[-1] for "Lat Estima" and "Lon Estima" to match the new DR position
+            if st.session_state.log_navegacion:
+                st.session_state.log_navegacion[-1]["Lat Estima"] = formatear_angulo_dms(
+                    dr_lat, es_latitud=True
+                )
+                st.session_state.log_navegacion[-1]["Lon Estima"] = formatear_angulo_dms(
+                    dr_lon, es_latitud=False
+                )
+
+                n_lat_re, n_lon_re = st.session_state.pos_real[-1]
+                diff_nmi = distancia_nmi(dr_lat, dr_lon, n_lat_re, n_lon_re)  
+                st.session_state.log_navegacion[-1]["Error (nmi)"] = round(diff_nmi, 2)  
+
             st.success("DR position updated.")
         except ValueError as exc:
             st.error(f"Invalid DR position format: {exc}")
 
+    # --- TABLA BITÁCORA NAVEGACIÓN ---
+    if st.session_state.log_navegacion:
+        st.subheader("Bitácora de Navegación")
+        df = pd.DataFrame(st.session_state.log_navegacion)
+
+        if "show_real_data" not in st.session_state or not st.session_state.show_real_data:
+            df = df.drop(columns=["Lat Real", "Lon Real", "Error (nmi)"])
+        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.toggle("Mostrar datos reales", value=False, key="show_real_data")
+
+with tab_sextant:
     # 3. SEXTANTE
     st.header("3. Observación Astronómica")
 
@@ -496,21 +520,14 @@ with nav_tab:
         col_l2.caption("🔴 Línea/puntos rojos: posición real del barco")
         col_l3.caption("🟢 Estrella verde: tu Fix introducido")
 
-    import pandas as pd
-
-    # --- TABLA BITÁCORA NAVEGACIÓN ---
-    if st.session_state.log_navegacion:
-        st.header("4. Bitácora de Navegación")
-        df = pd.DataFrame(st.session_state.log_navegacion)
-        st.dataframe(df, use_container_width=True, hide_index=True)
-
     # --- TABLA FIXES ---
     if st.session_state.log_fixes:
-        st.header("5. Registro de Fixes")
+        st.subheader("Registro de Fixes")
         df_fixes = pd.DataFrame(st.session_state.log_fixes)
         st.dataframe(df_fixes, use_container_width=True, hide_index=True)
 
-with fix_tab:
+
+with tab_fix:
     st.title("FIX calculator")
 
     st.markdown(
