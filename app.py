@@ -240,10 +240,6 @@ with nav_tab:
                 language="text",
             )
 
-        st.info(
-            "💡 Consejo NavPac: Recuerda que para el programa 'SIGHT', la hora UTC es vital para obtener el GHA y la Dec del astro."
-        )
-
     # --- SIDEBAR: CONFIGURACIÓN ---
     dificultad = st.sidebar.radio(
         "🌊 Estado del Mar",
