@@ -511,28 +511,8 @@ with nav_tab:
     """
             )
 
-            # _altura_obs_ft = _obs.get("altura_ojo_ft", _obs.get("altura_ojo_m", 0.0) / 0.3048)
-
-            # _partes_obs = [
-            #     f"altura de ojo {_altura_obs_ft:.1f} ft",
-            #     f"refracción +{_obs['refraccion_min']:.1f}'",
-            #     f"dip +{_obs['dip_min']:.1f}'",
-            # ]
-            # if _obs["semidiametro_min"] > 0 and _obs["limbo"] != "Centro":
-            #     signo_sd = "-" if _obs["limbo"] == "Inferior" else "+"
-            #     _partes_obs.append(
-            #         f"semidiámetro {signo_sd}{_obs['semidiametro_min']:.1f}'"
-            #     )
-            # if abs(_obs["error_obs_min"]) > 1e-6:
-            #     _partes_obs.append(f"error simulado {_obs['error_obs_min']:+.1f}'")
-
-            # st.caption(
-            #     f"Lectura guardada: {_obs['fecha']} UTC · posición real del barco · "
-            #     + " · ".join(_partes_obs)
-            # )
-
-    # 3. EL MAPA DE LA VERDAD
-    st.header("3. Posicionamiento")
+    # 4. EL MAPA DE LA VERDAD
+    st.header("4. Posicionamiento")
     u_lat_dr, u_lon_dr = st.session_state.pos_dr[-1]
     lat_dr_dms, lon_dr_dms = formatear_lat_lon_dms(u_lat_dr, u_lon_dr)
     st.caption(f"Estima actual (DMS): Lat {lat_dr_dms} | Lon {lon_dr_dms}")
