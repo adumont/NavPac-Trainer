@@ -271,9 +271,6 @@ with nav_tab:
                 "Astro puntual: se usa el centro del cuerpo para la lectura."
             )
 
-        if "ultima_observacion" not in st.session_state:
-            st.session_state.ultima_observacion = None
-
         if st.button("🔭 Tomar Altura", key="btn_tomar_altura"):
             lat_real, lon_real = st.session_state.pos_real[-1]
             try:
@@ -292,7 +289,7 @@ with nav_tab:
                 #     _error_obs_min = random.uniform(-0.35, 0.35)
 
                 _hs_obs = _obs_real["hs"] + (_error_obs_min / 60.0)
-                st.session_state.ultima_observacion = {
+                _obs = {
                     "cuerpo": _cuerpo_sel,
                     "hs": _hs_obs,
                     "altura_ojo_ft": _altura_ojo_ft,
@@ -305,62 +302,55 @@ with nav_tab:
                     "error_obs_min": _error_obs_min,
                     "fecha": st.session_state.hora_actual.strftime("%d-%m-%Y %H:%M"),
                 }
+
+
+                # Mostrar nombre del cuerpo en mayúsculas, y para Sol/Luna añadir L/U según limbo
+                # Mostrar SUN/MOON en vez de Sol/Luna
+                if _obs["cuerpo"] == "Sol":
+                    cuerpo_upper = "SUN"
+                elif _obs["cuerpo"] == "Luna":
+                    cuerpo_upper = "MOON"
+                else:
+                    cuerpo_upper = _obs["cuerpo"].upper()
+                cuerpo_navpac = cuerpo_upper
+                if cuerpo_upper in ("SUN", "MOON"):
+                    if _obs["limbo"] == "Inferior":
+                        cuerpo_navpac += "L"
+                    elif _obs["limbo"] == "Superior":
+                        cuerpo_navpac += "U"
+
+                st.markdown(
+                    f"""
+        ### Observation Details
+        Enter this in NavPac's `SIGHT` program. Then run `DR` to see your position estimate based on this observation.
+        - Date: `{st.session_state.hora_actual.strftime("%m.%d%Y")}`
+        - Time: `{st.session_state.hora_actual.strftime("%H:%M")} UTC`
+        - He: `{_altura_ojo_ft:.1f} ft`
+        - Hs: `{formatear_navpac_dmmss(_obs['hs'])}` ({formatear_grados_minutos_decimal(_obs['hs'])})
+        - Body: {f"`{NAVPAC_STAR_INDEX[_obs['cuerpo']]}` (`{cuerpo_navpac}`)" if _obs['cuerpo'] in NAVPAC_STAR_INDEX else f"`{cuerpo_navpac}`"}
+        """
+                )
+
+                entrada_observacion = {
+                    "Date&¡/Time UTC": st.session_state.hora_actual.strftime(
+                        "%d-%m-%Y %H:%M"
+                    ),
+                    "DR": f"{formatear_angulo_dms(_lat_obs, es_latitud=True)}, {formatear_angulo_dms(_lon_obs, es_latitud=False)}",
+                    "Altura Ojo (ft)": _obs["altura_ojo_ft"],
+                    "Refracción (min)": round(_obs["refraccion_min"], 2),
+                    "Dip (min)": round(_obs["dip_min"], 2),
+                    "Body": cuerpo_navpac,
+                    "Azimuth (º)": round(_obs["az"], 2),
+                    "Semidiametro (min)": round(_obs["semidiametro_min"], 2),
+                    "Hs (DMMSS)": formatear_navpac_dmmss(_obs["hs"]),
+                    "Hs (decimal)": round(_obs["hs"], 4),
+                }
+                st.session_state.log_observaciones = st.session_state.log_observaciones + [
+                    entrada_observacion
+                ]
             except Exception as exc:
                 st.error(f"Error al calcular la altura de {_cuerpo_sel}: {exc}")
 
-        if st.session_state.ultima_observacion is not None:
-            _obs = st.session_state.ultima_observacion
-            _detalle_limbo = ""
-            if _obs["limbo"] != "Centro":
-                _detalle_limbo = f" · limbo {_obs['limbo'].lower()}"
-
-            # Mostrar nombre del cuerpo en mayúsculas, y para Sol/Luna añadir L/U según limbo
-            # Mostrar SUN/MOON en vez de Sol/Luna
-            if _obs["cuerpo"] == "Sol":
-                cuerpo_upper = "SUN"
-            elif _obs["cuerpo"] == "Luna":
-                cuerpo_upper = "MOON"
-            else:
-                cuerpo_upper = _obs["cuerpo"].upper()
-            cuerpo_navpac = cuerpo_upper
-            if cuerpo_upper in ("SUN", "MOON"):
-                if _obs["limbo"] == "Inferior":
-                    cuerpo_navpac += "L"
-                elif _obs["limbo"] == "Superior":
-                    cuerpo_navpac += "U"
-
-            st.markdown(
-                f"""
-    ### Observation Details
-    Enter this in NavPac's `SIGHT` program. Then run `DR` to see your position estimate based on this observation.
-    - Date: `{st.session_state.hora_actual.strftime("%m.%d%Y")}`
-    - Time: `{st.session_state.hora_actual.strftime("%H:%M")} UTC`
-    - He: `{_altura_ojo_ft:.1f} ft`
-    - Hs: `{formatear_navpac_dmmss(_obs['hs'])}` ({formatear_grados_minutos_decimal(_obs['hs'])})
-    - Body: {f"`{NAVPAC_STAR_INDEX[_obs['cuerpo']]}` (`{cuerpo_navpac}`)" if _obs['cuerpo'] in NAVPAC_STAR_INDEX else f"`{cuerpo_navpac}`"}
-    """
-            )
-
-            entrada_observacion = {
-                "Date&¡/Time UTC": st.session_state.hora_actual.strftime(
-                    "%d-%m-%Y %H:%M"
-                ),
-                "DR": f"{formatear_angulo_dms(_lat_obs, es_latitud=True)}, {formatear_angulo_dms(_lon_obs, es_latitud=False)}",
-                "Altura Ojo (ft)": _obs["altura_ojo_ft"],
-                "Refracción (min)": round(_obs["refraccion_min"], 2),
-                "Dip (min)": round(_obs["dip_min"], 2),
-                "Body": cuerpo_navpac,
-                "Azimuth (º)": round(_obs["az"], 2),
-                "Semidiametro (min)": round(_obs["semidiametro_min"], 2),
-                "Hs (DMMSS)": formatear_navpac_dmmss(_obs["hs"]),
-                "Hs (decimal)": round(_obs["hs"], 4),
-            }
-            st.session_state.log_observaciones = st.session_state.log_observaciones + [
-                entrada_observacion
-            ]
-            st.session_state.ultima_observacion = (
-                None  # Limpiar la última observación después de registrarla
-            )
 
         if st.session_state.log_observaciones:
             st.subheader("Registro de Observaciones")
