@@ -266,6 +266,7 @@ with nav_tab:
         horas = 0.0
 
     if st.button("Navegar"):
+        st.session_state.hora_previa = st.session_state.hora_actual
         st.session_state.hora_actual += datetime.timedelta(hours=horas)
         distancia = velocidad * horas
 
@@ -304,10 +305,11 @@ with nav_tab:
         # Registrar en bitácora
         diff_nmi = distancia_nmi(n_lat_dr, n_lon_dr, n_lat_re, n_lon_re)
         nueva_entrada = {
-            "Fecha/Hora UTC": st.session_state.hora_actual.strftime("%d-%m-%Y %H:%M"),
+            "Fecha Salida UTC": st.session_state.hora_previa.strftime("%d-%m-%Y %H:%M"),
             "Rumbo (º)": rumbo,
             "Vel (kn)": velocidad,
             "Horas": horas,
+            "Fecha Llegada UTC": st.session_state.hora_actual.strftime("%d-%m-%Y %H:%M"),
             "Dist DR (nmi)": round(distancia, 1),
             "Lat Estima": formatear_angulo_dms(n_lat_dr, es_latitud=True),
             "Lon Estima": formatear_angulo_dms(n_lon_dr, es_latitud=False),
