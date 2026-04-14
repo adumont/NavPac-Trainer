@@ -326,8 +326,38 @@ with nav_tab:
         )
         st.rerun()
 
-    # 2. SEXTANTE
-    st.header("2. Observación Astronómica")
+    # 2. Dead Reckoning
+    st.header("2. Dead Reckoning")
+
+    st.write(
+        f"Use `DR` in NavPac with the inputs above (Rumbo = `{rumbo}º`, Velocidad x Tiempo = `{velocidad * horas} nmi`) to see your estimated position based on Dead Reckoning. Enter it below:"
+    )
+
+    # Input DR lat/lon (DDºmm:ss),  two  columns
+    col_dr_lat, col_dr_lon = st.columns(2)
+    u_lat_dr, u_lon_dr = st.session_state.pos_dr[-1]
+    dr_lat_texto = col_dr_lat.text_input(
+        "DR Latitude",
+        placeholder="Ejemplo: 36º32:00 N",
+        value=formatear_angulo_dms(u_lat_dr, es_latitud=True)
+    )
+    dr_lon_texto = col_dr_lon.text_input(
+        "DR Longitude",
+        placeholder="Ejemplo: 06º17:00 W",
+        value=formatear_angulo_dms(u_lon_dr, es_latitud=False)
+    )
+
+    if st.button("Update DR Position"):
+        try:
+            dr_lat = dms_texto_a_decimal(dr_lat_texto, es_latitud=True)
+            dr_lon = dms_texto_a_decimal(dr_lon_texto, es_latitud=False)
+            st.session_state.pos_dr[-1] = (dr_lat, dr_lon)
+            st.success("DR position updated.")
+        except ValueError as exc:
+            st.error(f"Invalid DR position format: {exc}")
+
+    # 3. SEXTANTE
+    st.header("3. Observación Astronómica")
 
     _lat_obs, _lon_obs = st.session_state.pos_dr[-1]
     _dt_utc = st.session_state.hora_actual.replace(tzinfo=datetime.timezone.utc)
@@ -651,18 +681,18 @@ with nav_tab:
 with fix_tab:
     st.title("FIX calculator")
 
-    st.caption("Estimated position:")
+    st.markdown(
+        f"""
 
+```
+Assumed position (DR):
+Latitude : {lat_dr_dms}
+Longitude: {lon_dr_dms}
+```             
+
+"""
+    )
     # Input DR lat/lon (DDºmm:ss),  two  columns
-    col_dr_lat, col_dr_lon = st.columns(2)
-    dr_lat_texto = col_dr_lat.text_input(
-        "DR Latitude",
-        value="36º31:59 N",
-    )
-    dr_lon_texto = col_dr_lon.text_input(
-        "DR Longitude",
-        value="6º17:00 W",
-    )
 
     from angulos import parse_dms
 
