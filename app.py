@@ -15,7 +15,6 @@ from angulos import (
     dms_texto_a_decimal,
     formatear_grados_minutos_decimal,
     formatear_grados_mm,
-    formatear_position,
 )
 
 # --- CONFIGURACIÓN Y ESTADO ---
