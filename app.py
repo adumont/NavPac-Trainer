@@ -30,7 +30,7 @@ from navigation import (
 )
 
 
-def update_dr_position(dr_lat: float|str, dr_lon: float|str) -> None:
+def update_dr_position(dr_lat: float | str, dr_lon: float | str) -> None:
     try:
         if isinstance(dr_lat, str):
             dr_lat = dms_texto_a_decimal(dr_lat, es_latitud=True)
@@ -57,8 +57,10 @@ def update_dr_position(dr_lat: float|str, dr_lon: float|str) -> None:
         st.error(f"Invalid DR position format: {exc}")
 
 
- # --- CONFIGURATION AND STATE ---
-st.set_page_config(page_title="NavPac Simulator MVP", layout="wide")
+# --- CONFIGURATION AND STATE ---
+st.set_page_config(
+    page_title="NavPac Simulator MVP", layout="wide", page_icon=":material/explore:"
+)
 
 if "iniciado" not in st.session_state:
     st.session_state.hora_actual = datetime.datetime(2026, 5, 15, 8, 0)
@@ -81,7 +83,9 @@ dificultad = st.sidebar.radio(
 )
 
 # -- TABS ---
-tab_ruta, tab_nav, tab_sextant, tab_fix = st.tabs(["Route", "Navigation", "Sextant", "Fix Calculator"])
+tab_ruta, tab_nav, tab_sextant, tab_fix = st.tabs(
+    ["Route", "Navigation", "Sextant", "Fix Calculator"]
+)
 
 with tab_ruta:
     st.title("⛵ NavPac Simulator: Cadiz ➡️ Canary Islands")
@@ -139,7 +143,6 @@ with tab_nav:
         st.session_state.hora_actual += datetime.timedelta(hours=horas)
         distancia = velocidad * horas
 
-
         # Move DR (Dead Reckoning) — navigator does not apply drift corrections
         u_lat_dr, u_lon_dr = st.session_state.pos_dr[-1]
         n_lat_dr, n_lon_dr = mover_barco(u_lat_dr, u_lon_dr, rumbo, distancia)
@@ -175,13 +178,13 @@ with tab_nav:
         # Log entry
         diff_nmi = distancia_nmi(n_lat_dr, n_lon_dr, n_lat_re, n_lon_re)
         nueva_entrada = {
-            "Departure Date UTC": st.session_state.hora_previa.strftime("%d-%m-%Y %H:%M"),
+            "Departure Date UTC": st.session_state.hora_previa.strftime(
+                "%d-%m-%Y %H:%M"
+            ),
             "Course (º)": rumbo,
             "Speed (kn)": velocidad,
             "Hours": horas,
-            "Arrival Date UTC": st.session_state.hora_actual.strftime(
-                "%d-%m-%Y %H:%M"
-            ),
+            "Arrival Date UTC": st.session_state.hora_actual.strftime("%d-%m-%Y %H:%M"),
             "Dist DR (nmi)": round(distancia, 1),
             "Lat DR": formatear_angulo_dms(n_lat_dr, es_latitud=True),
             "Lon DR": formatear_angulo_dms(n_lon_dr, es_latitud=False),
@@ -227,7 +230,10 @@ with tab_nav:
         st.subheader("Navigation Log")
         df = pd.DataFrame(st.session_state.log_navegacion)
 
-        if "show_real_data" not in st.session_state or not st.session_state.show_real_data:
+        if (
+            "show_real_data" not in st.session_state
+            or not st.session_state.show_real_data
+        ):
             df = df.drop(columns=["Lat Real", "Lon Real", "Error (nmi)"])
         st.dataframe(df, use_container_width=True, hide_index=True)
         st.toggle("Show real data", value=False, key="show_real_data")
@@ -336,7 +342,6 @@ with tab_sextant:
                     "fecha": st.session_state.hora_actual.strftime("%d-%m-%Y %H:%M"),
                 }
 
-
                 # Show body name in uppercase, and for Sun/Moon add L/U according to limb
                 # Show SUN/MOON instead of Sol/Luna
                 if _obs["cuerpo"] == "Sol":
@@ -378,13 +383,11 @@ with tab_sextant:
                     "Hs (DMMSS)": formatear_navpac_dmmss(_obs["hs"]),
                     "Hs (decimal)": round(_obs["hs"], 4),
                 }
-                st.session_state.log_observaciones = st.session_state.log_observaciones + [
-                    entrada_observacion
-                ]
+                st.session_state.log_observaciones = (
+                    st.session_state.log_observaciones + [entrada_observacion]
+                )
             except Exception as exc:
                 st.error(f"Error computing altitude for {_cuerpo_sel}: {exc}")
-
-
 
         if st.session_state.log_observaciones:
             st.subheader("Sight Log")
@@ -396,7 +399,6 @@ with tab_sextant:
             st.info(
                 "You haven't taken any sights yet. Use the '\U0001f52d Take Sight' button to record your first celestial observation."
             )
-
 
     # 4. THE MAP OF TRUTH
     st.header("4. Positioning")
@@ -444,9 +446,7 @@ with tab_sextant:
 
     if st.button("🗺️ Reveal Real Position"):
         if not fix_valido:
-            st.error(
-                "Cannot reveal with invalid Fix. Check DDºmm:ss format."
-            )
+            st.error("Cannot reveal with invalid Fix. Check DDºmm:ss format.")
             st.stop()
 
         st.session_state.revelado = True
@@ -566,17 +566,35 @@ Longitude: {lon_dr_dms}
     # First row: a1, a2, a3
 
     def reset_update_dr_with_fix_flag():
-        st.session_state.update_dr_with_fix_clicked = False  # Reset the flag when a new fix is computed
+        st.session_state.update_dr_with_fix_clicked = (
+            False  # Reset the flag when a new fix is computed
+        )
 
     col_a1, col_a2, col_a3 = st.columns(3)
-    a1 = col_a1.text_input("a1 (altitude intercept)", value="10.5 A", on_change=reset_update_dr_with_fix_flag)
-    a2 = col_a2.text_input("a2 (altitude intercept)", value="8.2 T", on_change=reset_update_dr_with_fix_flag)
-    a3 = col_a3.text_input("a3 (altitude intercept)", value="", on_change=reset_update_dr_with_fix_flag)
+    a1 = col_a1.text_input(
+        "a1 (altitude intercept)",
+        value="10.5 A",
+        on_change=reset_update_dr_with_fix_flag,
+    )
+    a2 = col_a2.text_input(
+        "a2 (altitude intercept)",
+        value="8.2 T",
+        on_change=reset_update_dr_with_fix_flag,
+    )
+    a3 = col_a3.text_input(
+        "a3 (altitude intercept)", value="", on_change=reset_update_dr_with_fix_flag
+    )
     # Second row: zn1, zn2, zn3
     col_zn1, col_zn2, col_zn3 = st.columns(3)
-    zn1 = col_zn1.text_input("ZN1 (azimuth from north)", value=45.0, on_change=reset_update_dr_with_fix_flag)
-    zn2 = col_zn2.text_input("ZN2 (azimuth from north)", value=120.0, on_change=reset_update_dr_with_fix_flag)
-    zn3 = col_zn3.text_input("ZN3 (azimuth from north)", value="", on_change=reset_update_dr_with_fix_flag)
+    zn1 = col_zn1.text_input(
+        "ZN1 (azimuth from north)", value=45.0, on_change=reset_update_dr_with_fix_flag
+    )
+    zn2 = col_zn2.text_input(
+        "ZN2 (azimuth from north)", value=120.0, on_change=reset_update_dr_with_fix_flag
+    )
+    zn3 = col_zn3.text_input(
+        "ZN3 (azimuth from north)", value="", on_change=reset_update_dr_with_fix_flag
+    )
     # Show FIX:
     from lop import compute_fix_multi
     from tipos import LOP, Position
@@ -619,7 +637,9 @@ Fix Longitude: {formatear_angulo_dms(fix.lon, es_latitud=False)}
                     update_dr_position(fix.lat, fix.lon)
                     st.session_state.update_dr_with_fix_clicked = True
                     st.rerun()
-                st.write("⚠️ After updating DR with a FIX you won't be able to recalculate a fix until you take new sights from a new current position.")
+                st.write(
+                    "⚠️ After updating DR with a FIX you won't be able to recalculate a fix until you take new sights from a new current position."
+                )
 
     else:
         st.warning(
