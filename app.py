@@ -29,6 +29,34 @@ from navigation import (
     NAVPAC_STAR_INDEX,
 )
 
+
+def update_dr_position(dr_lat: float|str, dr_lon: float|str) -> None:
+    try:
+        if isinstance(dr_lat, str):
+            dr_lat = dms_texto_a_decimal(dr_lat, es_latitud=True)
+        if isinstance(dr_lon, str):
+            dr_lon = dms_texto_a_decimal(dr_lon, es_latitud=False)
+
+        st.session_state.pos_dr[-1] = (dr_lat, dr_lon)
+
+        # Update the last log entry's DR position and recompute error
+        if st.session_state.log_navegacion:
+            st.session_state.log_navegacion[-1]["Lat DR"] = formatear_angulo_dms(
+                dr_lat, es_latitud=True
+            )
+            st.session_state.log_navegacion[-1]["Lon DR"] = formatear_angulo_dms(
+                dr_lon, es_latitud=False
+            )
+
+            n_lat_re, n_lon_re = st.session_state.pos_real[-1]
+            diff_nmi = distancia_nmi(dr_lat, dr_lon, n_lat_re, n_lon_re)
+            st.session_state.log_navegacion[-1]["Error (nmi)"] = round(diff_nmi, 2)
+
+        st.success("DR position updated.")
+    except ValueError as exc:
+        st.error(f"Invalid DR position format: {exc}")
+
+
  # --- CONFIGURATION AND STATE ---
 st.set_page_config(page_title="NavPac Simulator MVP", layout="wide")
 
@@ -192,27 +220,7 @@ with tab_nav:
     )
 
     if st.button("Update DR Position"):
-        try:
-            dr_lat = dms_texto_a_decimal(dr_lat_texto, es_latitud=True)
-            dr_lon = dms_texto_a_decimal(dr_lon_texto, es_latitud=False)
-            st.session_state.pos_dr[-1] = (dr_lat, dr_lon)
-
-            # update values in st.session_state.log_navegacion[-1] for "Lat DR" and "Lon DR" to match the new DR position
-            if st.session_state.log_navegacion:
-                st.session_state.log_navegacion[-1]["Lat DR"] = formatear_angulo_dms(
-                    dr_lat, es_latitud=True
-                )
-                st.session_state.log_navegacion[-1]["Lon DR"] = formatear_angulo_dms(
-                    dr_lon, es_latitud=False
-                )
-
-                n_lat_re, n_lon_re = st.session_state.pos_real[-1]
-                diff_nmi = distancia_nmi(dr_lat, dr_lon, n_lat_re, n_lon_re)  
-                st.session_state.log_navegacion[-1]["Error (nmi)"] = round(diff_nmi, 2)  
-
-            st.success("DR position updated.")
-        except ValueError as exc:
-            st.error(f"Invalid DR position format: {exc}")
+        update_dr_position(dr_lat_texto, dr_lon_texto)
 
     # --- NAVIGATION LOG TABLE ---
     if st.session_state.log_navegacion:
@@ -551,23 +559,24 @@ Longitude: {lon_dr_dms}
     # we write the converted decimal DR position below the inputs, or an error if the format is invalid
     dr_lat_decimal = parse_dms(dr_lat_texto)
     dr_lon_decimal = parse_dms(dr_lon_texto)
-    st.write(f"DR Latitude (decimal): {dr_lat_decimal}")
-    st.write(f"DR Longitude (decimal): {dr_lon_decimal}")
 
     # now we can input up to 3 altitude intercept (a float A|T) and the azimuth (ZN float, ZN represents the azimuth measured from the north)
 
     st.caption("Up to 3 altitude intercepts (a) and azimuths (ZN):")
     # First row: a1, a2, a3
+
+    def reset_update_dr_with_fix_flag():
+        st.session_state.update_dr_with_fix_clicked = False  # Reset the flag when a new fix is computed
+
     col_a1, col_a2, col_a3 = st.columns(3)
-    a1 = col_a1.text_input("a1 (altitude intercept)", value="10.5 A")
-    a2 = col_a2.text_input("a2 (altitude intercept)", value="8.2 T")
-    a3 = col_a3.text_input("a3 (altitude intercept)", value="")
+    a1 = col_a1.text_input("a1 (altitude intercept)", value="10.5 A", on_change=reset_update_dr_with_fix_flag)
+    a2 = col_a2.text_input("a2 (altitude intercept)", value="8.2 T", on_change=reset_update_dr_with_fix_flag)
+    a3 = col_a3.text_input("a3 (altitude intercept)", value="", on_change=reset_update_dr_with_fix_flag)
     # Second row: zn1, zn2, zn3
     col_zn1, col_zn2, col_zn3 = st.columns(3)
-    zn1 = col_zn1.text_input("ZN1 (azimuth from north)", value=45.0)
-    zn2 = col_zn2.text_input("ZN2 (azimuth from north)", value=120.0)
-    zn3 = col_zn3.text_input("ZN3 (azimuth from north)", value="")
-
+    zn1 = col_zn1.text_input("ZN1 (azimuth from north)", value=45.0, on_change=reset_update_dr_with_fix_flag)
+    zn2 = col_zn2.text_input("ZN2 (azimuth from north)", value=120.0, on_change=reset_update_dr_with_fix_flag)
+    zn3 = col_zn3.text_input("ZN3 (azimuth from north)", value="", on_change=reset_update_dr_with_fix_flag)
     # Show FIX:
     from lop import compute_fix_multi
     from tipos import LOP, Position
@@ -601,6 +610,16 @@ Fix Longitude: {formatear_angulo_dms(fix.lon, es_latitud=False)}
 
 """
         )
+        if "update_dr_with_fix_clicked" not in st.session_state:
+            st.session_state.update_dr_with_fix_clicked = False
+
+        if not st.session_state.update_dr_with_fix_clicked:
+            with st.container(horizontal=True):
+                if st.button("Update DR Position with FIX"):
+                    update_dr_position(fix.lat, fix.lon)
+                    st.session_state.update_dr_with_fix_clicked = True
+                    st.rerun()
+                st.write("⚠️ After updating DR with a FIX you won't be able to recalculate a fix until you take new sights from a new current position.")
 
     else:
         st.warning(
