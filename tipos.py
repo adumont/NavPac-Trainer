@@ -3,11 +3,11 @@ from dataclasses import dataclass
 
 @dataclass
 class Position:
-    lat: float  # grados decimales
-    lon: float  # grados decimales
+    lat: float  # decimal degrees
+    lon: float  # decimal degrees
 
 
 @dataclass
 class LOP:
-    a: float  # distancia a la LOP en millas náuticas
-    zn: float  # rumbo de la LOP en grados (0 = Norte, 90 = Este)
+    a: float  # intercept distance in nautical miles
+    zn: float  # azimuth of the LOP in degrees (0 = North, 90 = East)

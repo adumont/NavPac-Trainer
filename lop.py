@@ -8,9 +8,9 @@ from tipos import LOP, Position
 
 def solve_fix_least_squares(lops: List[LOP]) -> tuple[float, float]:
     """
-    lops: lista de LOPs con atributos a y zn_rad
+    lops: list of LOPs with attributes a and zn_rad
 
-    Devuelve (x, y) en millas náuticas (Este, Norte)
+    Returns (x, y) in nautical miles (East, North)
     """
 
     sum_sin2 = 0.0
@@ -37,7 +37,7 @@ def solve_fix_least_squares(lops: List[LOP]) -> tuple[float, float]:
     det = sum_sin2 * sum_cos2 - sum_sin_cos**2
 
     if abs(det) < 1e-6:
-        raise ValueError("Geometría mala (LOPs degeneradas)")
+        raise ValueError("Poor geometry (degenerate LOPs)")
 
     x = (sum_a_sin * sum_cos2 - sum_a_cos * sum_sin_cos) / det
     y = (sum_sin2 * sum_a_cos - sum_sin_cos * sum_a_sin) / det
@@ -47,9 +47,9 @@ def solve_fix_least_squares(lops: List[LOP]) -> tuple[float, float]:
 
 def apply_offset(dr: Position, x_east: float, y_north: float) -> Position:
     """
-    Aplica desplazamiento al DR:
-    - x en millas náuticas hacia el Este
-    - y en millas náuticas hacia el Norte
+    Applies offset to the DR position:
+    - x in nautical miles East
+    - y in nautical miles North
     """
     lat = dr.lat + y_north / 60
 

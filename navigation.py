@@ -2,14 +2,14 @@ import math
 from streamlit import cache_resource
 from skyfield.api import Loader, wgs84, Star
 
-# --- Constantes ---
+# --- Constants ---
 
-# Coordenadas de puntos clave
+# Key coordinates
 CADIZ = (36.5333, -6.2833)
 TENERIFE = (28.4667, -16.2500)
 
-# Catálogo de cuerpos celestes navegables
-# Valor: string = clave en efemérides JPL | Star = estrella con coord J2000
+# Catalog of navigational celestial bodies
+# Value: string = JPL ephemeris key | Star = star with J2000 coordinates
 
 CUERPOS_CELESTES = {
     "Sol": "sun",
@@ -35,7 +35,7 @@ CUERPOS_CELESTES = {
     "Antares": Star(ra_hours=16.4901, dec_degrees=-26.4320),
 }
 
-# Mapeo de estrellas a su número NavPac (según la imagen)
+# Mapping of stars to their NavPac number (per the reference image)
 NAVPAC_STAR_INDEX = {
     "Polaris": 0,
     "Vega": 49,
@@ -59,16 +59,16 @@ RADIOS_CUERPOS_KM = {
 }
 
 
-# --- MATEMÁTICA NAVAL ---
+# --- NAUTICAL MATHEMATICS ---
 def mover_barco(lat, lon, rumbo, distancia):
-    R = 3440.065  # Radio terrestre en millas náuticas
+    R = 3440.065  # Earth radius in nautical miles
     lat1, lon1, brng = math.radians(lat), math.radians(lon), math.radians(rumbo)
     d = distancia / R
 
     lat2 = math.asin(
         math.sin(lat1) * math.cos(d) + math.cos(lat1) * math.sin(d) * math.cos(brng)
     )
-    # Corrección: aquí usamos lon1 y lat1 correctamente
+    # Correction: using lon1 and lat1 correctly here
     lon2 = lon1 + math.atan2(
         math.sin(brng) * math.sin(d) * math.cos(lat1),
         math.cos(d) - math.sin(lat1) * math.sin(lat2),
@@ -103,7 +103,7 @@ def observacion_aparente(nombre, lat, lon, dt_utc):
 
 
 def altura_cuerpo(nombre, lat, lon, dt_utc):
-    """Devuelve la altitud verdadera del centro (sin refracción) y azimut."""
+    """Returns the true altitude of the center (without refraction) and azimuth."""
     apparent = observacion_aparente(nombre, lat, lon, dt_utc)
     alt, az, _ = apparent.altaz()
     return alt.degrees, az.degrees
@@ -122,7 +122,7 @@ def semidiametro_minutos(nombre, distancia_km):
     return math.degrees(math.asin(min(1.0, radio_km / distancia_km))) * 60.0
 
 
-def lectura_sextante(nombre, lat, lon, dt_utc, altura_ojo_m=3.048, limbo="Centro"):
+def lectura_sextante(nombre, lat, lon, dt_utc, altura_ojo_m=3.048, limbo="Center"):
     apparent = observacion_aparente(nombre, lat, lon, dt_utc)
     alt_true, az, _ = apparent.altaz()
     alt_refr, _, _ = apparent.altaz(
@@ -137,9 +137,9 @@ def lectura_sextante(nombre, lat, lon, dt_utc, altura_ojo_m=3.048, limbo="Centro
 
     ajuste_limbo_min = 0.0
     if semidiametro_cuerpo_min > 0:
-        if limbo == "Inferior":
+        if limbo == "Lower":
             ajuste_limbo_min = -semidiametro_cuerpo_min
-        elif limbo == "Superior":
+        elif limbo == "Upper":
             ajuste_limbo_min = semidiametro_cuerpo_min
 
     hs = alt_centro_real + (refraccion_min + dip_min + ajuste_limbo_min) / 60.0
@@ -155,7 +155,7 @@ def lectura_sextante(nombre, lat, lon, dt_utc, altura_ojo_m=3.048, limbo="Centro
 
 
 def cuerpos_visibles(lat, lon, dt_utc, alt_min=5.0):
-    """Devuelve dict {nombre: (alt, az)} para cuerpos por encima de alt_min grados."""
+    """Returns dict {name: (alt, az)} for bodies above alt_min degrees."""
     resultado = {}
     for nombre in CUERPOS_CELESTES:
         try:
@@ -168,7 +168,7 @@ def cuerpos_visibles(lat, lon, dt_utc, alt_min=5.0):
 
 
 def distancia_nmi(lat1, lon1, lat2, lon2):
-    # Distancia ortodrómica con radio terrestre medio en millas náuticas.
+    # Great-circle distance with mean Earth radius in nautical miles.
     r_nmi = 3440.065
     phi1 = math.radians(lat1)
     phi2 = math.radians(lat2)

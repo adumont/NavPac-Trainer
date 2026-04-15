@@ -29,7 +29,7 @@ from navigation import (
     NAVPAC_STAR_INDEX,
 )
 
-# --- CONFIGURACIÓN Y ESTADO ---
+ # --- CONFIGURATION AND STATE ---
 st.set_page_config(page_title="NavPac Simulator MVP", layout="wide")
 
 if "iniciado" not in st.session_state:
@@ -46,38 +46,38 @@ if "log_navegacion" not in st.session_state:
 if "log_fixes" not in st.session_state:
     st.session_state.log_fixes = []
 
-# --- SIDEBAR: CONFIGURACIÓN ---
+# --- SIDEBAR: CONFIGURATION ---
 dificultad = st.sidebar.radio(
-    "🌊 Estado del Mar",
-    options=["Calma (Fácil)", "Moderado (Medio)", "Temporal (Difícil)"],
+    "🌊 Sea State",
+    options=["Calm (Easy)", "Moderate (Medium)", "Storm (Hard)"],
 )
 
 # -- TABS ---
-tab_ruta, tab_nav, tab_sextant, tab_fix = st.tabs(["Ruta", "Navegacion", "Sextante", "Fix Calculator"])
+tab_ruta, tab_nav, tab_sextant, tab_fix = st.tabs(["Route", "Navigation", "Sextant", "Fix Calculator"])
 
 with tab_ruta:
-    st.title("⛵ NavPac Simulator: Cádiz ➡️ Canarias")
-    with st.expander("📖 Cuaderno de Bitácora - Datos de Misión", expanded=True):
+    st.title("⛵ NavPac Simulator: Cadiz ➡️ Canary Islands")
+    with st.expander("📖 Logbook - Mission Data", expanded=True):
         col_a, col_b, col_c = st.columns(3)
         with col_a:
-            st.markdown("### 📍 Posición de Salida")
+            st.markdown("### 📍 Departure Position")
             cadiz_lat_dms, cadiz_lon_dms = formatear_lat_lon_dms(CADIZ[0], CADIZ[1])
             st.code(
-                f"Cádiz\nLat: {cadiz_lat_dms}\nLon: {cadiz_lon_dms}", language="text"
+                f"Cadiz\nLat: {cadiz_lat_dms}\nLon: {cadiz_lon_dms}", language="text"
             )
 
         with col_b:
-            st.markdown("### 📅 Cronómetro UTC")
-            # Mostramos la hora de salida fija y la hora actual del simulador
+            st.markdown("### 📅 UTC Clock")
+            # Show fixed departure time and current simulator time
             hora_salida = datetime.datetime(2026, 5, 15, 8, 0)
-            st.write(f"**Salida:** {hora_salida.strftime('%d-%m-%Y %H:%M')} UTC")
+            st.write(f"**Departure:** {hora_salida.strftime('%d-%m-%Y %H:%M')} UTC")
             st.write(
-                f"**Actual:** {st.session_state.hora_actual.strftime('%d-%m-%Y %H:%M')} UTC"
+                f"**Current:** {st.session_state.hora_actual.strftime('%d-%m-%Y %H:%M')} UTC"
             )
-            st.caption("Usa esta fecha/hora para el Almanaque Náutico de la HP-41C.")
+            st.caption("Use this date/time for the HP-41C Nautical Almanac.")
 
         with col_c:
-            st.markdown("### 🏁 Destino")
+            st.markdown("### 🏁 Destination")
             tenerife_lat_dms, tenerife_lon_dms = formatear_lat_lon_dms(
                 TENERIFE[0], TENERIFE[1]
             )
@@ -87,44 +87,45 @@ with tab_ruta:
             )
 
 with tab_nav:
-    # 1. EL TIMÓN
-    st.subheader("Órdenes a Máquinas")
+    # 1. THE HELM
+    st.subheader("Engine Orders")
     c1, c2, c3 = st.columns(3)
-    rumbo = c1.number_input("Rumbo (º)", 0, 359, 229)
-    velocidad = c2.number_input("Velocidad (nudos)", 0, 20, 6)
+    rumbo = c1.number_input("Course (º)", 0, 359, 229)
+    velocidad = c2.number_input("Speed (knots)", 0, 20, 6)
     # Input for time in HH:MM format
     horas_hhmm = c3.text_input(
-        "Tiempo (HH:MM)",
+        "Time (HH:MM)",
         value="04:00",
-        help="Introduce el tiempo en formato HH:MM (ejemplo: 12:30)",
+        help="Enter the time in HH:MM format (example: 12:30)",
     )
     # Convert HH:MM to decimal hours
     _horas_match = re.match(r"^\s*(\d{1,2}):(\d{2})\s*$", horas_hhmm)
     if _horas_match:
         horas = int(_horas_match.group(1)) + int(_horas_match.group(2)) / 60.0
     else:
-        st.error("Formato de tiempo inválido. Usa HH:MM (ejemplo: 12:30)")
+        st.error("Invalid time format. Use HH:MM (example: 12:30)")
         horas = 0.0
 
-    if st.button("Navegar"):
+    if st.button("Navigate"):
         st.session_state.hora_previa = st.session_state.hora_actual
         st.session_state.hora_actual += datetime.timedelta(hours=horas)
         distancia = velocidad * horas
 
-        # Mover Estima (DR) — el navegante no aplica correcciones de deriva
+
+        # Move DR (Dead Reckoning) — navigator does not apply drift corrections
         u_lat_dr, u_lon_dr = st.session_state.pos_dr[-1]
         n_lat_dr, n_lon_dr = mover_barco(u_lat_dr, u_lon_dr, rumbo, distancia)
         st.session_state.pos_dr = st.session_state.pos_dr + [(n_lat_dr, n_lon_dr)]
 
-        # Mover Real con error y deriva (también cuando velocidad=0)
+        # Move Real with error and drift (also when speed=0)
         u_lat_re, u_lon_re = st.session_state.pos_real[-1]
 
         if velocidad == 0:
-            # Barco parado: solo actúan corrientes/deriva según dificultad
+            # Ship stopped: only currents/drift act according to difficulty
             deriva_vel = {
-                "Calma (Fácil)": 0.15,
-                "Moderado (Medio)": 0.35,
-                "Temporal (Difícil)": 0.8,
+                "Calm (Easy)": 0.15,
+                "Moderate (Medium)": 0.35,
+                "Storm (Hard)": 0.8,
             }.get(dificultad, 0.15)
             deriva_rumbo = random.uniform(0, 360)
             n_lat_re, n_lon_re = mover_barco(
@@ -132,9 +133,9 @@ with tab_nav:
             )
         else:
             err_r, err_v = 0, 0
-            if "Medio" in dificultad:
+            if "Medium" in dificultad:
                 err_r, err_v = random.uniform(-3, 3), random.uniform(-0.5, 0.5)
-            elif "Difícil" in dificultad:
+            elif "Hard" in dificultad:
                 err_r, err_v = random.uniform(-7, 7), random.uniform(-1.2, 1.2)
             vel_real = max(0.0, velocidad + err_v)
             n_lat_re, n_lon_re = mover_barco(
@@ -143,19 +144,19 @@ with tab_nav:
 
         st.session_state.pos_real = st.session_state.pos_real + [(n_lat_re, n_lon_re)]
 
-        # Registrar en bitácora
+        # Log entry
         diff_nmi = distancia_nmi(n_lat_dr, n_lon_dr, n_lat_re, n_lon_re)
         nueva_entrada = {
-            "Fecha Salida UTC": st.session_state.hora_previa.strftime("%d-%m-%Y %H:%M"),
-            "Rumbo (º)": rumbo,
-            "Vel (kn)": velocidad,
-            "Horas": horas,
-            "Fecha Llegada UTC": st.session_state.hora_actual.strftime(
+            "Departure Date UTC": st.session_state.hora_previa.strftime("%d-%m-%Y %H:%M"),
+            "Course (º)": rumbo,
+            "Speed (kn)": velocidad,
+            "Hours": horas,
+            "Arrival Date UTC": st.session_state.hora_actual.strftime(
                 "%d-%m-%Y %H:%M"
             ),
             "Dist DR (nmi)": round(distancia, 1),
-            "Lat Estima": formatear_angulo_dms(n_lat_dr, es_latitud=True),
-            "Lon Estima": formatear_angulo_dms(n_lon_dr, es_latitud=False),
+            "Lat DR": formatear_angulo_dms(n_lat_dr, es_latitud=True),
+            "Lon DR": formatear_angulo_dms(n_lon_dr, es_latitud=False),
             "Lat Real": formatear_angulo_dms(n_lat_re, es_latitud=True),
             "Lon Real": formatear_angulo_dms(n_lon_re, es_latitud=False),
             "Error (nmi)": round(diff_nmi, 2),
@@ -165,7 +166,7 @@ with tab_nav:
         ]
 
         st.success(
-            f"Navegación completada. Hora actual: {st.session_state.hora_actual.strftime('%H:%M')} UTC"
+            f"Navigation completed. Current time: {st.session_state.hora_actual.strftime('%H:%M')} UTC"
         )
         st.rerun()
 
@@ -173,7 +174,7 @@ with tab_nav:
     st.subheader("Dead Reckoning")
 
     st.write(
-        f"Use `DR` in NavPac with the inputs above (Rumbo = `{rumbo}º`, Velocidad x Tiempo = `{velocidad * horas} nmi`) to see your estimated position based on Dead Reckoning. Enter it below:"
+        f"Use `DR` in NavPac with the inputs above (Course = `{rumbo}º`, Speed x Time = `{velocidad * horas} nmi`) to see your estimated position based on Dead Reckoning. Enter it below:"
     )
 
     # Input DR lat/lon (DDºmm:ss),  two  columns
@@ -181,12 +182,12 @@ with tab_nav:
     u_lat_dr, u_lon_dr = st.session_state.pos_dr[-1]
     dr_lat_texto = col_dr_lat.text_input(
         "DR Latitude",
-        placeholder="Ejemplo: 36º32:00 N",
+        placeholder="Example: 36º32:00 N",
         value=formatear_angulo_dms(u_lat_dr, es_latitud=True),
     )
     dr_lon_texto = col_dr_lon.text_input(
         "DR Longitude",
-        placeholder="Ejemplo: 06º17:00 W",
+        placeholder="Example: 06º17:00 W",
         value=formatear_angulo_dms(u_lon_dr, es_latitud=False),
     )
 
@@ -196,12 +197,12 @@ with tab_nav:
             dr_lon = dms_texto_a_decimal(dr_lon_texto, es_latitud=False)
             st.session_state.pos_dr[-1] = (dr_lat, dr_lon)
 
-            # update values in st.session_state.log_navegacion[-1] for "Lat Estima" and "Lon Estima" to match the new DR position
+            # update values in st.session_state.log_navegacion[-1] for "Lat DR" and "Lon DR" to match the new DR position
             if st.session_state.log_navegacion:
-                st.session_state.log_navegacion[-1]["Lat Estima"] = formatear_angulo_dms(
+                st.session_state.log_navegacion[-1]["Lat DR"] = formatear_angulo_dms(
                     dr_lat, es_latitud=True
                 )
-                st.session_state.log_navegacion[-1]["Lon Estima"] = formatear_angulo_dms(
+                st.session_state.log_navegacion[-1]["Lon DR"] = formatear_angulo_dms(
                     dr_lon, es_latitud=False
                 )
 
@@ -213,19 +214,19 @@ with tab_nav:
         except ValueError as exc:
             st.error(f"Invalid DR position format: {exc}")
 
-    # --- TABLA BITÁCORA NAVEGACIÓN ---
+    # --- NAVIGATION LOG TABLE ---
     if st.session_state.log_navegacion:
-        st.subheader("Bitácora de Navegación")
+        st.subheader("Navigation Log")
         df = pd.DataFrame(st.session_state.log_navegacion)
 
         if "show_real_data" not in st.session_state or not st.session_state.show_real_data:
             df = df.drop(columns=["Lat Real", "Lon Real", "Error (nmi)"])
         st.dataframe(df, use_container_width=True, hide_index=True)
-        st.toggle("Mostrar datos reales", value=False, key="show_real_data")
+        st.toggle("Show real data", value=False, key="show_real_data")
 
 with tab_sextant:
-    # 3. SEXTANTE
-    st.header("3. Observación Astronómica")
+    # 3. SEXTANT
+    st.header("3. Celestial Observation")
 
     _lat_obs, _lon_obs = st.session_state.pos_dr[-1]
     _dt_utc = st.session_state.hora_actual.replace(tzinfo=datetime.timezone.utc)
@@ -234,21 +235,21 @@ with tab_sextant:
         _visibles = cuerpos_visibles(_lat_obs, _lon_obs, _dt_utc)
     except Exception as _exc:
         _visibles = {}
-        st.error(f"Error al calcular cuerpos visibles: {_exc}")
+        st.error(f"Error calculating visible bodies: {_exc}")
 
     if not _visibles:
         st.warning(
-            "No hay cuerpos celestes visibles (alt > 5°) a esta hora y posición. Avanza el tiempo."
+            "No celestial bodies visible (alt > 5°) at this time and position. Advance the time."
         )
     else:
 
-        # Ordenar: Sol y Luna siempre arriba si visibles, luego el resto por altitud descendente
+        # Sort: Sun and Moon always on top if visible, then rest by descending altitude
         _ordenados = sorted(_visibles.items(), key=lambda x: -x[1][0])
         _sol_visible = "Sol" in _visibles
         _luna_visible = "Luna" in _visibles
         _hay_estrellas = any(isinstance(CUERPOS_CELESTES[n], Star) for n in _visibles)
 
-        # Construir lista con Sol y Luna primero si están
+        # Build list with Sun and Moon first if present
         _ordenados_final = []
         if _sol_visible:
             _ordenados_final.append(("Sol", _visibles["Sol"]))
@@ -259,43 +260,43 @@ with tab_sextant:
                 _ordenados_final.append((n, v))
 
         if _sol_visible:
-            st.caption("☀️ El Sol está sobre el horizonte. Observación diurna posible.")
+            st.caption("☀️ The Sun is above the horizon. Daytime observation possible.")
         if _hay_estrellas:
-            st.caption("⭐ Estrellas visibles: condiciones de crepúsculo o noche.")
+            st.caption("⭐ Visible stars: twilight or night conditions.")
 
         _opciones_mapa = {
             f"{n}  —  alt {formatear_grados_mm(a)}  az {int(z):03d}°": n
             for n, (a, z) in _ordenados_final
         }
-        _sel_str = st.selectbox("Cuerpo a observar:", list(_opciones_mapa.keys()))
+        _sel_str = st.selectbox("Body to observe:", list(_opciones_mapa.keys()))
         _cuerpo_sel = _opciones_mapa[_sel_str]
         _usa_limbo = _cuerpo_sel in RADIOS_CUERPOS_KM
 
         _col_obs_1, _col_obs_2 = st.columns(2)
         _altura_ojo_ft = _col_obs_1.number_input(
-            "Altura de ojo sobre el mar (ft)",
+            "Height of Eye (ft)",
             min_value=0.0,
             max_value=100.0,
             value=10.0,
             step=0.5,
-            help="Se usa para aplicar la depresión del horizonte en la lectura Hs.",
+            help="Used to apply the dip correction in the Hs reading.",
         )
         _altura_ojo_m = _altura_ojo_ft * 0.3048
 
         if _usa_limbo:
             _limbo = _col_obs_2.selectbox(
-                "Limbo observado",
-                options=["Inferior", "Superior"],
+                "Observed limb",
+                options=["Lower", "Upper"],
                 index=0,
-                help="Para Sol y Luna, la lectura del sextante depende del limbo observado.",
+                help="For Sun and Moon, the sextant reading depends on the observed limb.",
             )
         else:
-            _limbo = "Centro"
+            _limbo = "Center"
             _col_obs_2.caption(
-                "Astro puntual: se usa el centro del cuerpo para la lectura."
+                "Point source: the center of the body is used for the reading."
             )
 
-        if st.button("🔭 Tomar Altura", key="btn_tomar_altura"):
+        if st.button("🔭 Take Sight", key="btn_tomar_altura"):
             lat_real, lon_real = st.session_state.pos_real[-1]
             try:
                 _obs_real = lectura_sextante(
@@ -309,7 +310,7 @@ with tab_sextant:
                 _error_obs_min = 0.0
                 # if "Medio" in dificultad:
                 #     _error_obs_min = random.uniform(-0.15, 0.15)
-                # elif "Difícil" in dificultad:
+                # elif "Hard" in dificultad:
                 #     _error_obs_min = random.uniform(-0.35, 0.35)
 
                 _hs_obs = _obs_real["hs"] + (_error_obs_min / 60.0)
@@ -328,8 +329,8 @@ with tab_sextant:
                 }
 
 
-                # Mostrar nombre del cuerpo en mayúsculas, y para Sol/Luna añadir L/U según limbo
-                # Mostrar SUN/MOON en vez de Sol/Luna
+                # Show body name in uppercase, and for Sun/Moon add L/U according to limb
+                # Show SUN/MOON instead of Sol/Luna
                 if _obs["cuerpo"] == "Sol":
                     cuerpo_upper = "SUN"
                 elif _obs["cuerpo"] == "Luna":
@@ -338,9 +339,9 @@ with tab_sextant:
                     cuerpo_upper = _obs["cuerpo"].upper()
                 cuerpo_navpac = cuerpo_upper
                 if cuerpo_upper in ("SUN", "MOON"):
-                    if _obs["limbo"] == "Inferior":
+                    if _obs["limbo"] == "Lower":
                         cuerpo_navpac += "L"
-                    elif _obs["limbo"] == "Superior":
+                    elif _obs["limbo"] == "Upper":
                         cuerpo_navpac += "U"
 
                 st.markdown(
@@ -356,16 +357,16 @@ with tab_sextant:
                 )
 
                 entrada_observacion = {
-                    "Date&¡/Time UTC": st.session_state.hora_actual.strftime(
+                    "Date/Time UTC": st.session_state.hora_actual.strftime(
                         "%d-%m-%Y %H:%M"
                     ),
                     "DR": f"{formatear_angulo_dms(_lat_obs, es_latitud=True)}, {formatear_angulo_dms(_lon_obs, es_latitud=False)}",
-                    "Altura Ojo (ft)": _obs["altura_ojo_ft"],
-                    "Refracción (min)": round(_obs["refraccion_min"], 2),
+                    "Height of Eye (ft)": _obs["altura_ojo_ft"],
+                    "Refraction (min)": round(_obs["refraccion_min"], 2),
                     "Dip (min)": round(_obs["dip_min"], 2),
                     "Body": cuerpo_navpac,
                     "Azimuth (º)": round(_obs["az"], 2),
-                    "Semidiametro (min)": round(_obs["semidiametro_min"], 2),
+                    "Semi-diameter (min)": round(_obs["semidiametro_min"], 2),
                     "Hs (DMMSS)": formatear_navpac_dmmss(_obs["hs"]),
                     "Hs (decimal)": round(_obs["hs"], 4),
                 }
@@ -373,25 +374,27 @@ with tab_sextant:
                     entrada_observacion
                 ]
             except Exception as exc:
-                st.error(f"Error al calcular la altura de {_cuerpo_sel}: {exc}")
+                st.error(f"Error computing altitude for {_cuerpo_sel}: {exc}")
+
 
 
         if st.session_state.log_observaciones:
-            st.subheader("Registro de Observaciones")
+            st.subheader("Sight Log")
             import pandas as pd
 
             df_obs = pd.DataFrame(st.session_state.log_observaciones)
             st.dataframe(df_obs, use_container_width=True, hide_index=True)
         else:
             st.info(
-                "Aún no has tomado ninguna observación. Usa el botón 'Tomar Altura' para registrar tu primera observación astronómica."
+                "You haven't taken any sights yet. Use the '\U0001f52d Take Sight' button to record your first celestial observation."
             )
 
-    # 4. EL MAPA DE LA VERDAD
-    st.header("4. Posicionamiento")
+
+    # 4. THE MAP OF TRUTH
+    st.header("4. Positioning")
     u_lat_dr, u_lon_dr = st.session_state.pos_dr[-1]
     lat_dr_dms, lon_dr_dms = formatear_lat_lon_dms(u_lat_dr, u_lon_dr)
-    st.caption(f"Estima actual (DMS): Lat {lat_dr_dms} | Lon {lon_dr_dms}")
+    st.caption(f"Current DR (DMS): Lat {lat_dr_dms} | Lon {lon_dr_dms}")
     col_lat, col_lon = st.columns(2)
 
     if "fix_lat_texto" not in st.session_state:
@@ -402,14 +405,14 @@ with tab_sextant:
         )
 
     fix_lat_texto = col_lat.text_input(
-        "Latitud de tu Fix (DDºmm:ss)",
+        "Your Fix Latitude (DDºmm:ss)",
         value=st.session_state.fix_lat_texto,
-        help="Ejemplo: 36º31:59 N",
+        help="Example: 36º31:59 N",
     )
     fix_lon_texto = col_lon.text_input(
-        "Longitud de tu Fix (DDºmm:ss)",
+        "Your Fix Longitude (DDºmm:ss)",
         value=st.session_state.fix_lon_texto,
-        help="Ejemplo: 006º17:00 W",
+        help="Example: 006º17:00 W",
     )
 
     st.session_state.fix_lat_texto = fix_lat_texto
@@ -420,38 +423,38 @@ with tab_sextant:
     try:
         fix_lat = dms_texto_a_decimal(fix_lat_texto, es_latitud=True)
         fix_lon = dms_texto_a_decimal(fix_lon_texto, es_latitud=False)
-        st.caption(f"Fix decimal interno: Lat {fix_lat:.4f} | Lon {fix_lon:.4f}")
+        st.caption(f"Internal decimal fix: Lat {fix_lat:.4f} | Lon {fix_lon:.4f}")
     except ValueError as exc:
         fix_valido = False
         fix_error = str(exc)
-        st.warning(f"Formato de Fix inválido: {fix_error}")
+        st.warning(f"Invalid Fix format: {fix_error}")
 
     if "revelado" not in st.session_state:
         st.session_state.revelado = False
     if "fix_revelado" not in st.session_state:
         st.session_state.fix_revelado = None
 
-    if st.button("🗺️ Revelar Posición Real"):
+    if st.button("🗺️ Reveal Real Position"):
         if not fix_valido:
             st.error(
-                "No se puede revelar con Fix inválido. Revisa el formato DDºmm:ss."
+                "Cannot reveal with invalid Fix. Check DDºmm:ss format."
             )
             st.stop()
 
         st.session_state.revelado = True
         st.session_state.fix_revelado = (fix_lat, fix_lon)
 
-        # Registrar Fix en bitácora
+        # Log Fix
         lat_real_fix, lon_real_fix = st.session_state.pos_real[-1]
         err_fix = distancia_nmi(lat_real_fix, lon_real_fix, fix_lat, fix_lon)
         nueva_fix = {
-            "Paso": len(st.session_state.log_fixes) + 1,
-            "Fecha/Hora UTC": st.session_state.hora_actual.strftime("%d-%m-%Y %H:%M"),
+            "Step": len(st.session_state.log_fixes) + 1,
+            "Date/Time UTC": st.session_state.hora_actual.strftime("%d-%m-%Y %H:%M"),
             "Lat Fix": formatear_angulo_dms(fix_lat, es_latitud=True),
             "Lon Fix": formatear_angulo_dms(fix_lon, es_latitud=False),
             "Lat Real": formatear_angulo_dms(lat_real_fix, es_latitud=True),
             "Lon Real": formatear_angulo_dms(lon_real_fix, es_latitud=False),
-            "Error Fix/Real (nmi)": round(err_fix, 2),
+            "Fix/Real Error (nmi)": round(err_fix, 2),
         }
         st.session_state.log_fixes = st.session_state.log_fixes + [nueva_fix]
 
@@ -460,17 +463,17 @@ with tab_sextant:
         lat_real, lon_real = st.session_state.pos_real[-1]
         lat_real_dms, lon_real_dms = formatear_lat_lon_dms(lat_real, lon_real)
         error_nmi = distancia_nmi(lat_real, lon_real, fix_lat_mapa, fix_lon_mapa)
-        st.success(f"Posición real: Lat {lat_real_dms} | Lon {lon_real_dms}")
-        st.info(f"Error de tu Fix: {error_nmi:.2f} nmi")
+        st.success(f"Real position: Lat {lat_real_dms} | Lon {lon_real_dms}")
+        st.info(f"Your Fix error: {error_nmi:.2f} nmi")
 
-    # Mapa: Estima siempre visible; track real solo cuando revelado
+    # Map: DR always visible; real track only when revealed
     m = folium.Map(location=[u_lat_dr, u_lon_dr], zoom_start=6)
 
-    # --- Línea Estima (azul) con marcador en cada waypoint ---
+    # --- DR line (blue) with marker at each waypoint ---
     if len(st.session_state.pos_dr) > 1:
         folium.PolyLine(st.session_state.pos_dr, color="blue", weight=2).add_to(m)
     for i, (lat, lon) in enumerate(st.session_state.pos_dr):
-        tooltip = "Salida (Estima)" if i == 0 else f"Estima #{i}"
+        tooltip = "Departure (DR)" if i == 0 else f"DR #{i}"
         folium.CircleMarker(
             location=(lat, lon),
             radius=5,
@@ -480,12 +483,12 @@ with tab_sextant:
             tooltip=tooltip,
         ).add_to(m)
 
-    # --- Track real + marcadores (solo si revelado) ---
+    # --- Real track + markers (only if revealed) ---
     if st.session_state.revelado:
         if len(st.session_state.pos_real) > 1:
             folium.PolyLine(st.session_state.pos_real, color="red", weight=2).add_to(m)
         for i, (lat, lon) in enumerate(st.session_state.pos_real):
-            tooltip = "Salida (real)" if i == 0 else f"Posición real #{i}"
+            tooltip = "Departure (real)" if i == 0 else f"Real position #{i}"
             folium.CircleMarker(
                 location=(lat, lon),
                 radius=5,
@@ -494,35 +497,35 @@ with tab_sextant:
                 fill_opacity=0.85,
                 tooltip=tooltip,
             ).add_to(m)
-        # Fix del navegante
+        # User's Fix
         if st.session_state.fix_revelado is not None:
             fix_lat_mapa, fix_lon_mapa = st.session_state.fix_revelado
             folium.Marker(
                 (fix_lat_mapa, fix_lon_mapa),
                 icon=folium.Icon(color="green", icon="star"),
-                tooltip="Tu Fix",
+                tooltip="Your Fix",
             ).add_to(m)
 
-    # Destino
+    # Destination
     folium.Marker(
         TENERIFE,
         icon=folium.Icon(color="orange", icon="flag"),
-        tooltip="Destino: Tenerife",
+        tooltip="Destination: Tenerife",
     ).add_to(m)
 
     st_folium(m, width=800, height=450)
 
-    # Leyenda
+    # Legend
     col_l1, col_l2, col_l3, col_l4 = st.columns(4)
-    col_l1.caption("🔵 Línea/puntos azules: tu Estima (Dead Reckoning)")
-    col_l4.caption("🟠 Bandera naranja: Destino (Tenerife)")
+    col_l1.caption("🔵 Blue line/points: your DR (Dead Reckoning)")
+    col_l4.caption("🟠 Orange flag: Destination (Tenerife)")
     if st.session_state.revelado:
-        col_l2.caption("🔴 Línea/puntos rojos: posición real del barco")
-        col_l3.caption("🟢 Estrella verde: tu Fix introducido")
+        col_l2.caption("🔴 Red line/points: real position of the ship")
+        col_l3.caption("🟢 Green star: your entered Fix")
 
-    # --- TABLA FIXES ---
+    # --- FIXES TABLE ---
     if st.session_state.log_fixes:
-        st.subheader("Registro de Fixes")
+        st.subheader("Fixes Log")
         df_fixes = pd.DataFrame(st.session_state.log_fixes)
         st.dataframe(df_fixes, use_container_width=True, hide_index=True)
 
