@@ -487,12 +487,12 @@ with tab_sextant:
         )
 
     fix_lat_texto = col_lat.text_input(
-        "Your Fix Latitude (DDºmm:ss)",
+        "DR Latitude (DDºmm:ss)",
         value=st.session_state.fix_lat_texto,
         help="Example: 36º31:59 N",
     )
     fix_lon_texto = col_lon.text_input(
-        "Your Fix Longitude (DDºmm:ss)",
+        "DR Longitude (DDºmm:ss)",
         value=st.session_state.fix_lon_texto,
         help="Example: 006º17:00 W",
     )
@@ -505,7 +505,6 @@ with tab_sextant:
     try:
         fix_lat = dms_texto_a_decimal(fix_lat_texto, es_latitud=True)
         fix_lon = dms_texto_a_decimal(fix_lon_texto, es_latitud=False)
-        st.caption(f"Internal decimal fix: Lat {fix_lat:.4f} | Lon {fix_lon:.4f}")
     except ValueError as exc:
         fix_valido = False
         fix_error = str(exc)
@@ -518,7 +517,7 @@ with tab_sextant:
 
     if st.button("🗺️ Reveal Real Position"):
         if not fix_valido:
-            st.error("Cannot reveal with invalid Fix. Check DDºmm:ss format.")
+            st.error("Cannot reveal with invalid DR. Check DDºmm:ss format.")
             st.stop()
 
         st.session_state.revelado = True
