@@ -1,4 +1,4 @@
-# NavPac Simulator — Multi-Route Celestial Navigation Trainer
+# NavPac Trainer — Multi-Route Celestial Navigation Trainer
 
 A web-based celestial navigation trainer built with Streamlit. It simulates passages between selectable departure and destination ports, generating realistic sextant sights and Dead Reckoning data that you can directly feed into the **HP-41C NavPac** navigation pac to practice the full star-sight-to-fix workflow without going to sea.
 

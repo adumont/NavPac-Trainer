@@ -99,7 +99,7 @@ def update_dr_position(dr_lat: float | str, dr_lon: float | str) -> None:
 
 # --- CONFIGURATION AND STATE ---
 st.set_page_config(
-    page_title="NavPac Simulator MVP", layout="wide", page_icon=":material/explore:"
+    page_title="NavPac Trainer", layout="wide", page_icon=":material/explore:"
 )
 
 if "iniciado" not in st.session_state:
@@ -134,7 +134,7 @@ tab_ruta, tab_nav, tab_sextant, tab_fix = st.tabs(
 )
 
 with tab_ruta:
-    st.title(f"⛵ NavPac Simulator: {from_name} ➡️ {to_name}")
+    st.title(f"⛵ NavPac Trainer: {from_name} ➡️ {to_name}")
 
     col_from, col_to, col_apply = st.columns([1, 1, 0.7])
     selected_from = col_from.selectbox(
