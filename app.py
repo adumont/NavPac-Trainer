@@ -308,6 +308,109 @@ with tab_nav:
     if st.button("Update DR Position"):
         update_dr_position(dr_lat_texto, dr_lon_texto)
 
+
+    # 4. THE MAP OF TRUTH
+    st.subheader("Map")
+    u_lat_dr, u_lon_dr = st.session_state.pos_dr[-1]
+    lat_dr_dms, lon_dr_dms = formatear_lat_lon_dms(u_lat_dr, u_lon_dr)
+
+    col_lat, col_lon = st.columns(2)
+
+    if "revelado" not in st.session_state:
+        st.session_state.revelado = False
+    if "fix_revelado" not in st.session_state:
+        st.session_state.fix_revelado = None
+
+    if st.button("🗺️ Reveal Real Position"):
+        st.session_state.revelado = True
+        st.session_state.fix_revelado = (u_lat_dr, u_lon_dr)
+
+        # Log Fix
+        lat_real_fix, lon_real_fix = st.session_state.pos_real[-1]
+        err_fix = distancia_nmi(lat_real_fix, lon_real_fix, u_lat_dr, u_lon_dr)
+        nueva_fix = {
+            "Step": len(st.session_state.log_fixes) + 1,
+            "Date/Time UTC": st.session_state.hora_actual.strftime("%d-%m-%Y %H:%M"),
+            "Lat Fix": lat_dr_dms,
+            "Lon Fix": lon_dr_dms,
+            "Lat Real": formatear_angulo_dms(lat_real_fix, es_latitud=True),
+            "Lon Real": formatear_angulo_dms(lon_real_fix, es_latitud=False),
+            "Fix/Real Error (nmi)": round(err_fix, 2),
+        }
+        st.session_state.log_fixes = st.session_state.log_fixes + [nueva_fix]
+
+    if st.session_state.revelado and st.session_state.fix_revelado is not None:
+        fix_lat_mapa, fix_lon_mapa = st.session_state.fix_revelado
+        lat_real, lon_real = st.session_state.pos_real[-1]
+        lat_real_dms, lon_real_dms = formatear_lat_lon_dms(lat_real, lon_real)
+        error_nmi = distancia_nmi(lat_real, lon_real, fix_lat_mapa, fix_lon_mapa)
+        st.success(f"Real position: Lat {lat_real_dms} | Lon {lon_real_dms}")
+        st.info(f"Your Fix error: {error_nmi:.2f} nmi")
+
+    # Map: DR always visible; real track only when revealed
+    m = folium.Map(location=[u_lat_dr, u_lon_dr], zoom_start=6)
+
+    # --- DR line (blue) with marker at each waypoint ---
+    if len(st.session_state.pos_dr) > 1:
+        folium.PolyLine(st.session_state.pos_dr, color="blue", weight=2).add_to(m)
+    for i, (lat, lon) in enumerate(st.session_state.pos_dr):
+        tooltip = "Departure (DR)" if i == 0 else f"DR #{i}"
+        folium.CircleMarker(
+            location=(lat, lon),
+            radius=5,
+            color="blue",
+            fill=True,
+            fill_opacity=0.85,
+            tooltip=tooltip,
+        ).add_to(m)
+
+    # --- Real track + markers (only if revealed) ---
+    if st.session_state.revelado:
+        if len(st.session_state.pos_real) > 1:
+            folium.PolyLine(st.session_state.pos_real, color="red", weight=2).add_to(m)
+        for i, (lat, lon) in enumerate(st.session_state.pos_real):
+            tooltip = "Departure (real)" if i == 0 else f"Real position #{i}"
+            folium.CircleMarker(
+                location=(lat, lon),
+                radius=5,
+                color="red",
+                fill=True,
+                fill_opacity=0.85,
+                tooltip=tooltip,
+            ).add_to(m)
+        # User's Fix
+        if st.session_state.fix_revelado is not None:
+            fix_lat_mapa, fix_lon_mapa = st.session_state.fix_revelado
+            folium.Marker(
+                (fix_lat_mapa, fix_lon_mapa),
+                icon=folium.Icon(color="green", icon="star"),
+                tooltip="Your Fix",
+            ).add_to(m)
+
+    # Destination
+    folium.Marker(
+        to_coords,
+        icon=folium.Icon(color="orange", icon="flag"),
+        tooltip=f"Destination: {to_name}",
+    ).add_to(m)
+
+    st_folium(m, width=800, height=450)
+
+    # Legend
+    col_l1, col_l2, col_l3, col_l4 = st.columns(4)
+    col_l1.caption("🔵 Blue line/points: your DR (Dead Reckoning)")
+    col_l4.caption(f"🟠 Orange flag: Destination ({to_name})")
+    if st.session_state.revelado:
+        col_l2.caption("🔴 Red line/points: real position of the ship")
+        col_l3.caption("🟢 Green star: your entered Fix")
+
+    # --- FIXES TABLE ---
+    if st.session_state.log_fixes:
+        st.subheader("Fixes Log")
+        df_fixes = pd.DataFrame(st.session_state.log_fixes)
+        st.dataframe(df_fixes, use_container_width=True, hide_index=True)
+
+
     # --- NAVIGATION LOG TABLE ---
     if st.session_state.log_navegacion:
         st.subheader("Navigation Log")
@@ -483,141 +586,6 @@ with tab_sextant:
                 "You haven't taken any sights yet. Use the '\U0001f52d Take Sight' button to record your first celestial observation."
             )
 
-    # 4. THE MAP OF TRUTH
-    st.header("4. Positioning")
-    u_lat_dr, u_lon_dr = st.session_state.pos_dr[-1]
-    lat_dr_dms, lon_dr_dms = formatear_lat_lon_dms(u_lat_dr, u_lon_dr)
-    st.caption(f"Current DR (DMS): Lat {lat_dr_dms} | Lon {lon_dr_dms}")
-    col_lat, col_lon = st.columns(2)
-
-    if "fix_lat_texto" not in st.session_state:
-        st.session_state.fix_lat_texto = formatear_angulo_dms(u_lat_dr, es_latitud=True)
-    if "fix_lon_texto" not in st.session_state:
-        st.session_state.fix_lon_texto = formatear_angulo_dms(
-            u_lon_dr, es_latitud=False
-        )
-
-    fix_lat_texto = col_lat.text_input(
-        "DR Latitude (DDºmm:ss)",
-        value=st.session_state.fix_lat_texto,
-        help="Example: 36º31:59 N",
-    )
-    fix_lon_texto = col_lon.text_input(
-        "DR Longitude (DDºmm:ss)",
-        value=st.session_state.fix_lon_texto,
-        help="Example: 006º17:00 W",
-    )
-
-    st.session_state.fix_lat_texto = fix_lat_texto
-    st.session_state.fix_lon_texto = fix_lon_texto
-
-    fix_valido = True
-    fix_error = None
-    try:
-        fix_lat = dms_texto_a_decimal(fix_lat_texto, es_latitud=True)
-        fix_lon = dms_texto_a_decimal(fix_lon_texto, es_latitud=False)
-    except ValueError as exc:
-        fix_valido = False
-        fix_error = str(exc)
-        st.warning(f"Invalid Fix format: {fix_error}")
-
-    if "revelado" not in st.session_state:
-        st.session_state.revelado = False
-    if "fix_revelado" not in st.session_state:
-        st.session_state.fix_revelado = None
-
-    if st.button("🗺️ Reveal Real Position"):
-        if not fix_valido:
-            st.error("Cannot reveal with invalid DR. Check DDºmm:ss format.")
-            st.stop()
-
-        st.session_state.revelado = True
-        st.session_state.fix_revelado = (fix_lat, fix_lon)
-
-        # Log Fix
-        lat_real_fix, lon_real_fix = st.session_state.pos_real[-1]
-        err_fix = distancia_nmi(lat_real_fix, lon_real_fix, fix_lat, fix_lon)
-        nueva_fix = {
-            "Step": len(st.session_state.log_fixes) + 1,
-            "Date/Time UTC": st.session_state.hora_actual.strftime("%d-%m-%Y %H:%M"),
-            "Lat Fix": formatear_angulo_dms(fix_lat, es_latitud=True),
-            "Lon Fix": formatear_angulo_dms(fix_lon, es_latitud=False),
-            "Lat Real": formatear_angulo_dms(lat_real_fix, es_latitud=True),
-            "Lon Real": formatear_angulo_dms(lon_real_fix, es_latitud=False),
-            "Fix/Real Error (nmi)": round(err_fix, 2),
-        }
-        st.session_state.log_fixes = st.session_state.log_fixes + [nueva_fix]
-
-    if st.session_state.revelado and st.session_state.fix_revelado is not None:
-        fix_lat_mapa, fix_lon_mapa = st.session_state.fix_revelado
-        lat_real, lon_real = st.session_state.pos_real[-1]
-        lat_real_dms, lon_real_dms = formatear_lat_lon_dms(lat_real, lon_real)
-        error_nmi = distancia_nmi(lat_real, lon_real, fix_lat_mapa, fix_lon_mapa)
-        st.success(f"Real position: Lat {lat_real_dms} | Lon {lon_real_dms}")
-        st.info(f"Your Fix error: {error_nmi:.2f} nmi")
-
-    # Map: DR always visible; real track only when revealed
-    m = folium.Map(location=[u_lat_dr, u_lon_dr], zoom_start=6)
-
-    # --- DR line (blue) with marker at each waypoint ---
-    if len(st.session_state.pos_dr) > 1:
-        folium.PolyLine(st.session_state.pos_dr, color="blue", weight=2).add_to(m)
-    for i, (lat, lon) in enumerate(st.session_state.pos_dr):
-        tooltip = "Departure (DR)" if i == 0 else f"DR #{i}"
-        folium.CircleMarker(
-            location=(lat, lon),
-            radius=5,
-            color="blue",
-            fill=True,
-            fill_opacity=0.85,
-            tooltip=tooltip,
-        ).add_to(m)
-
-    # --- Real track + markers (only if revealed) ---
-    if st.session_state.revelado:
-        if len(st.session_state.pos_real) > 1:
-            folium.PolyLine(st.session_state.pos_real, color="red", weight=2).add_to(m)
-        for i, (lat, lon) in enumerate(st.session_state.pos_real):
-            tooltip = "Departure (real)" if i == 0 else f"Real position #{i}"
-            folium.CircleMarker(
-                location=(lat, lon),
-                radius=5,
-                color="red",
-                fill=True,
-                fill_opacity=0.85,
-                tooltip=tooltip,
-            ).add_to(m)
-        # User's Fix
-        if st.session_state.fix_revelado is not None:
-            fix_lat_mapa, fix_lon_mapa = st.session_state.fix_revelado
-            folium.Marker(
-                (fix_lat_mapa, fix_lon_mapa),
-                icon=folium.Icon(color="green", icon="star"),
-                tooltip="Your Fix",
-            ).add_to(m)
-
-    # Destination
-    folium.Marker(
-        to_coords,
-        icon=folium.Icon(color="orange", icon="flag"),
-        tooltip=f"Destination: {to_name}",
-    ).add_to(m)
-
-    st_folium(m, width=800, height=450)
-
-    # Legend
-    col_l1, col_l2, col_l3, col_l4 = st.columns(4)
-    col_l1.caption("🔵 Blue line/points: your DR (Dead Reckoning)")
-    col_l4.caption(f"🟠 Orange flag: Destination ({to_name})")
-    if st.session_state.revelado:
-        col_l2.caption("🔴 Red line/points: real position of the ship")
-        col_l3.caption("🟢 Green star: your entered Fix")
-
-    # --- FIXES TABLE ---
-    if st.session_state.log_fixes:
-        st.subheader("Fixes Log")
-        df_fixes = pd.DataFrame(st.session_state.log_fixes)
-        st.dataframe(df_fixes, use_container_width=True, hide_index=True)
 
 
 with tab_fix:
