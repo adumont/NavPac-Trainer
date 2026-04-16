@@ -218,8 +218,11 @@ with tab_nav:
     if _horas_match:
         horas = int(_horas_match.group(1)) + int(_horas_match.group(2)) / 60.0
     else:
-        st.error("Invalid time format. Use HH:MM (example: 12:30)")
-        horas = 0.0
+        try:
+            horas = float(horas_hhmm)
+        except ValueError:
+            st.error("Invalid time format. Use HH:MM (example: 12:30)")
+            horas = 0.0
 
     if st.button("Navigate"):
         st.session_state.hora_previa = st.session_state.hora_actual
