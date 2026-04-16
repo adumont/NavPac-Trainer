@@ -159,36 +159,47 @@ with tab_ruta:
         st.rerun()
 
     route_nmi = distancia_nmi(from_coords[0], from_coords[1], to_coords[0], to_coords[1])
-    st.caption(f"Planned great-circle distance: {route_nmi:.1f} nmi")
 
     with st.expander("📖 Logbook - Mission Data", expanded=True):
-        col_a, col_b, col_c = st.columns(3)
-        with col_a:
-            st.markdown("### 📍 Departure Position")
-            dep_lat_dms, dep_lon_dms = formatear_lat_lon_dms(
-                from_coords[0], from_coords[1]
-            )
-            st.code(
-                f"{from_name}\nLat: {dep_lat_dms}\nLon: {dep_lon_dms}", language="text"
-            )
+        hora_salida = datetime.datetime(2026, 5, 15, 8, 0)
+        cur_lat_dr, cur_lon_dr = st.session_state.pos_dr[-1]
 
-        with col_b:
-            st.markdown("### 📅 UTC Clock")
-            # Show fixed departure time and current simulator time
-            hora_salida = datetime.datetime(2026, 5, 15, 8, 0)
-            st.write(f"**Departure:** {hora_salida.strftime('%d-%m-%Y %H:%M')} UTC")
-            st.write(
-                f"**Current:** {st.session_state.hora_actual.strftime('%d-%m-%Y %H:%M')} UTC"
-            )
-            st.caption("Use this date/time for the HP-41C Nautical Almanac.")
+        dep_lat_dms, dep_lon_dms = formatear_lat_lon_dms(from_coords[0], from_coords[1])
+        cur_lat_dms, cur_lon_dms = formatear_lat_lon_dms(cur_lat_dr, cur_lon_dr)
+        dest_lat_dms, dest_lon_dms = formatear_lat_lon_dms(to_coords[0], to_coords[1])
 
-        with col_c:
-            st.markdown("### 🏁 Destination")
-            dest_lat_dms, dest_lon_dms = formatear_lat_lon_dms(to_coords[0], to_coords[1])
+        col_departure, col_current, col_destination = st.columns(3)
+        with col_departure:
+            st.subheader("📍 Departure")
             st.code(
-                f"{to_name}\nLat: {dest_lat_dms}\nLon: {dest_lon_dms}",
+                f"{from_name}\n{hora_salida.strftime('%d-%m-%Y %H:%M')} (UTC)\n{dep_lat_dms}, {dep_lon_dms}",
                 language="text",
             )
+
+        with col_current:
+            st.subheader("🧭 Current Position")
+            st.code(
+                f"Position (DR)\n{st.session_state.hora_actual.strftime('%d-%m-%Y %H:%M')} (UTC)\n{cur_lat_dms}, {cur_lon_dms}",
+                language="text",
+            )
+
+        with col_destination:
+            st.subheader("🏁 Destination")
+            st.code(
+                f"{to_name}\n-\n{dest_lat_dms}, {dest_lon_dms}",
+                language="text",
+            )
+
+        dr_traveled_nmi = 0.0
+        for (lat_a, lon_a), (lat_b, lon_b) in zip(
+            st.session_state.pos_dr[:-1], st.session_state.pos_dr[1:]
+        ):
+            dr_traveled_nmi += distancia_nmi(lat_a, lon_a, lat_b, lon_b)
+        dr_remaining_est_nmi = distancia_nmi(cur_lat_dr, cur_lon_dr, to_coords[0], to_coords[1])
+
+        col_departure.metric("Distance Traveled", f"{dr_traveled_nmi:.1f} nmi")
+        col_current.metric("% Traveled", f"{(dr_traveled_nmi / route_nmi * 100):.1f} %")
+        col_destination.metric("Estimated Remaining Distance", f"{dr_remaining_est_nmi:.1f} nmi")
 
 with tab_nav:
     # 1. THE HELM
