@@ -30,6 +30,46 @@ from navigation import (
 )
 
 
+PLACES = {
+    "Cadiz": CADIZ,
+    "Tenerife": TENERIFE,
+    "San Juan (Caribbean)": (18.4655, -66.1057),
+    "Havana (Caribbean)": (23.1136, -82.3666),
+    "Mumbai (India)": (19.0760, 72.8777),
+    "Chennai (India)": (13.0827, 80.2707),
+    "Kochi (India)": (9.9312, 76.2673),
+    "Cape Town (Africa)": (-33.9249, 18.4241),
+    "Durban (Africa)": (-29.8587, 31.0218),
+    "Dakar (Africa)": (14.7167, -17.4677),
+    "Perth (Australia)": (-31.9505, 115.8605),
+    "Sydney (Australia)": (-33.8688, 151.2093),
+    "Brisbane (Australia)": (-27.4698, 153.0251),
+    "Buenos Aires (Argentina)": (-34.6037, -58.3816),
+    "Ushuaia (Argentina)": (-54.8019, -68.3030),
+    "Valparaiso (Chile)": (-33.0472, -71.6127),
+    "Punta Arenas (Chile)": (-53.1638, -70.9171),
+    "San Diego (USA West Coast)": (32.7157, -117.1611),
+    "Los Angeles (USA West Coast)": (34.0522, -118.2437),
+    "San Francisco (USA West Coast)": (37.7749, -122.4194),
+    "Seattle (USA West Coast)": (47.6062, -122.3321),
+    "Tokyo (Japan)": (35.6762, 139.6503),
+    "Yokohama (Japan)": (35.4437, 139.6380),
+    "Kobe (Japan)": (34.6901, 135.1955),
+}
+
+
+def reset_voyage_state(from_coords: tuple[float, float]) -> None:
+    st.session_state.hora_actual = datetime.datetime(2026, 5, 15, 8, 0)
+    st.session_state.pos_real = [from_coords]
+    st.session_state.pos_dr = [from_coords]
+    st.session_state.fixes = []
+    st.session_state.log_navegacion = []
+    st.session_state.log_observaciones = []
+    st.session_state.log_fixes = []
+    st.session_state.revelado = False
+    st.session_state.fix_revelado = None
+
+
 def update_dr_position(dr_lat: float | str, dr_lon: float | str) -> None:
     try:
         if isinstance(dr_lat, str):
@@ -63,18 +103,24 @@ st.set_page_config(
 )
 
 if "iniciado" not in st.session_state:
-    st.session_state.hora_actual = datetime.datetime(2026, 5, 15, 8, 0)
-    st.session_state.pos_real = [CADIZ]
-    st.session_state.pos_dr = [CADIZ]
-    st.session_state.fixes = []
-    st.session_state.log_navegacion = []
+    st.session_state.route_from = "Cadiz"
+    st.session_state.route_to = "Tenerife"
+    reset_voyage_state(PLACES[st.session_state.route_from])
     st.session_state.iniciado = True
-    st.session_state.log_observaciones = []
 
 if "log_navegacion" not in st.session_state:
     st.session_state.log_navegacion = []
 if "log_fixes" not in st.session_state:
     st.session_state.log_fixes = []
+if "route_from" not in st.session_state:
+    st.session_state.route_from = "Cadiz"
+if "route_to" not in st.session_state:
+    st.session_state.route_to = "Tenerife"
+
+from_name = st.session_state.route_from
+to_name = st.session_state.route_to
+from_coords = PLACES[from_name]
+to_coords = PLACES[to_name]
 
 # --- SIDEBAR: CONFIGURATION ---
 dificultad = st.sidebar.radio(
@@ -88,14 +134,42 @@ tab_ruta, tab_nav, tab_sextant, tab_fix = st.tabs(
 )
 
 with tab_ruta:
-    st.title("⛵ NavPac Simulator: Cadiz ➡️ Canary Islands")
+    st.title(f"⛵ NavPac Simulator: {from_name} ➡️ {to_name}")
+
+    col_from, col_to, col_apply = st.columns([1, 1, 0.7])
+    selected_from = col_from.selectbox(
+        "From:",
+        options=list(PLACES.keys()),
+        index=list(PLACES.keys()).index(from_name),
+        key="route_from_selector",
+    )
+    valid_destinations = [name for name in PLACES.keys() if name != selected_from]
+    selected_to = col_to.selectbox(
+        "To:",
+        options=valid_destinations,
+        index=valid_destinations.index(to_name) if to_name in valid_destinations else 0,
+        key="route_to_selector",
+    )
+
+    if col_apply.button("Apply Route", use_container_width=True):
+        st.session_state.route_from = selected_from
+        st.session_state.route_to = selected_to
+        reset_voyage_state(PLACES[selected_from])
+        st.success(f"Route set: {selected_from} ➡️ {selected_to}. Voyage reset.")
+        st.rerun()
+
+    route_nmi = distancia_nmi(from_coords[0], from_coords[1], to_coords[0], to_coords[1])
+    st.caption(f"Planned great-circle distance: {route_nmi:.1f} nmi")
+
     with st.expander("📖 Logbook - Mission Data", expanded=True):
         col_a, col_b, col_c = st.columns(3)
         with col_a:
             st.markdown("### 📍 Departure Position")
-            cadiz_lat_dms, cadiz_lon_dms = formatear_lat_lon_dms(CADIZ[0], CADIZ[1])
+            dep_lat_dms, dep_lon_dms = formatear_lat_lon_dms(
+                from_coords[0], from_coords[1]
+            )
             st.code(
-                f"Cadiz\nLat: {cadiz_lat_dms}\nLon: {cadiz_lon_dms}", language="text"
+                f"{from_name}\nLat: {dep_lat_dms}\nLon: {dep_lon_dms}", language="text"
             )
 
         with col_b:
@@ -110,11 +184,9 @@ with tab_ruta:
 
         with col_c:
             st.markdown("### 🏁 Destination")
-            tenerife_lat_dms, tenerife_lon_dms = formatear_lat_lon_dms(
-                TENERIFE[0], TENERIFE[1]
-            )
+            dest_lat_dms, dest_lon_dms = formatear_lat_lon_dms(to_coords[0], to_coords[1])
             st.code(
-                f"Tenerife\nLat: {tenerife_lat_dms}\nLon: {tenerife_lon_dms}",
+                f"{to_name}\nLat: {dest_lat_dms}\nLon: {dest_lon_dms}",
                 language="text",
             )
 
@@ -516,9 +588,9 @@ with tab_sextant:
 
     # Destination
     folium.Marker(
-        TENERIFE,
+        to_coords,
         icon=folium.Icon(color="orange", icon="flag"),
-        tooltip="Destination: Tenerife",
+        tooltip=f"Destination: {to_name}",
     ).add_to(m)
 
     st_folium(m, width=800, height=450)
@@ -526,7 +598,7 @@ with tab_sextant:
     # Legend
     col_l1, col_l2, col_l3, col_l4 = st.columns(4)
     col_l1.caption("🔵 Blue line/points: your DR (Dead Reckoning)")
-    col_l4.caption("🟠 Orange flag: Destination (Tenerife)")
+    col_l4.caption(f"🟠 Orange flag: Destination ({to_name})")
     if st.session_state.revelado:
         col_l2.caption("🔴 Red line/points: real position of the ship")
         col_l3.caption("🟢 Green star: your entered Fix")

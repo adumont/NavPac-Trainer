@@ -1,6 +1,6 @@
-# NavPac Simulator — Cadiz to Canary Islands
+# NavPac Simulator — Multi-Route Celestial Navigation Trainer
 
-A web-based celestial navigation trainer built with Streamlit. It simulates a passage from Cádiz to Tenerife, generating realistic sextant sights and Dead Reckoning data that you can directly feed into the **HP-41C NavPac** navigation pac to practice the full star-sight-to-fix workflow without going to sea.
+A web-based celestial navigation trainer built with Streamlit. It simulates passages between selectable departure and destination ports, generating realistic sextant sights and Dead Reckoning data that you can directly feed into the **HP-41C NavPac** navigation pac to practice the full star-sight-to-fix workflow without going to sea.
 
 ---
 
@@ -9,7 +9,19 @@ A web-based celestial navigation trainer built with Streamlit. It simulates a pa
 The simulator runs four interconnected modules, each accessible via a tab:
 
 ### 1. Route
-Overview of the voyage: departure position (Cádiz), destination (Tenerife), UTC clock, and a mission logbook. The displayed date and time are the values you should use when querying the HP-41 Nautical Almanac.
+Overview of the voyage: departure position, destination, UTC clock, and a mission logbook. Use the **From** and **To** selectors to choose a route, then press **Apply Route** to reset and start a new voyage from that departure point. The displayed date and time are the values you should use when querying the HP-41 Nautical Almanac.
+
+Current place catalog includes ports in:
+
+- Spain / Atlantic islands (Cádiz, Tenerife)
+- Caribbean
+- India
+- Africa
+- Australia
+- Argentina
+- Chile
+- USA West Coast
+- Japan
 
 ### 2. Navigation
 Advance the ship along a chosen course and speed for a given duration. The app maintains two parallel tracks:
@@ -44,7 +56,7 @@ Enter the altitude intercepts (**a**, in tenths of a nautical mile, suffix `A` f
 
 2. **Set sea state** in the sidebar to choose how much hidden error accumulates.
 
-3. **Route tab** — note the departure time; set the same date/time on your HP-41.
+3. **Route tab** — choose **From** and **To**, press **Apply Route**, then note the departure time; set the same date/time on your HP-41.
 
 4. **Navigation tab** — choose a course and speed, then press *Navigate*.
    - Run `DR` on the HP-41 with the same inputs to get your estimated position.
@@ -60,7 +72,7 @@ Enter the altitude intercepts (**a**, in tenths of a nautical mile, suffix `A` f
 
 7. **Positioning section (inside Sextant tab)** — enter your fix coordinates and press *Reveal Real Position* to see how far your celestial navigation placed you from where the ship actually is.
 
-Repeat steps 4–7 for each leg of the passage to Tenerife.
+Repeat steps 4–7 for each leg of your selected route.
 
 ---
 
