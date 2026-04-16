@@ -126,6 +126,7 @@ to_coords = PLACES[to_name]
 dificultad = st.sidebar.radio(
     "🌊 Sea State",
     options=["Calm (Easy)", "Moderate (Medium)", "Storm (Hard)"],
+    index=1,
 )
 
 # -- TABS ---
@@ -158,7 +159,9 @@ with tab_ruta:
         st.success(f"Route set: {selected_from} ➡️ {selected_to}. Voyage reset.")
         st.rerun()
 
-    route_nmi = distancia_nmi(from_coords[0], from_coords[1], to_coords[0], to_coords[1])
+    route_nmi = distancia_nmi(
+        from_coords[0], from_coords[1], to_coords[0], to_coords[1]
+    )
 
     with st.expander("📖 Logbook - Mission Data", expanded=True):
         hora_salida = datetime.datetime(2026, 5, 15, 8, 0)
@@ -195,11 +198,15 @@ with tab_ruta:
             st.session_state.pos_dr[:-1], st.session_state.pos_dr[1:]
         ):
             dr_traveled_nmi += distancia_nmi(lat_a, lon_a, lat_b, lon_b)
-        dr_remaining_est_nmi = distancia_nmi(cur_lat_dr, cur_lon_dr, to_coords[0], to_coords[1])
+        dr_remaining_est_nmi = distancia_nmi(
+            cur_lat_dr, cur_lon_dr, to_coords[0], to_coords[1]
+        )
 
         col_departure.metric("Distance Traveled", f"{dr_traveled_nmi:.1f} nmi")
         col_current.metric("% Traveled", f"{(dr_traveled_nmi / route_nmi * 100):.1f} %")
-        col_destination.metric("Estimated Remaining Distance", f"{dr_remaining_est_nmi:.1f} nmi")
+        col_destination.metric(
+            "Estimated Remaining Distance", f"{dr_remaining_est_nmi:.1f} nmi"
+        )
 
 with tab_nav:
     # 1. THE HELM
@@ -209,22 +216,26 @@ with tab_nav:
     velocidad = c2.number_input("Speed (knots)", 0, 20, 6)
     # Input for time in HH:MM format
     horas_hhmm = c3.text_input(
-        "Time (HH:MM)",
+        "Time (HH:MM) or decimal hours",
         value="04:00",
-        help="Enter the time in HH:MM format (example: 12:30)",
+        help="Enter the time in HH:MM format (example: 12:30) or decimal hours (example: 2.5)",
     )
     # Convert HH:MM to decimal hours
     _horas_match = re.match(r"^\s*(\d{1,2}):(\d{2})\s*$", horas_hhmm)
+    horas_valid = True
     if _horas_match:
         horas = int(_horas_match.group(1)) + int(_horas_match.group(2)) / 60.0
     else:
         try:
             horas = float(horas_hhmm)
         except ValueError:
-            st.error("Invalid time format. Use HH:MM (example: 12:30)")
+            st.error(
+                "Invalid time format. Use HH:MM (example: 12:30) or decimal hours (example: 2.5)."
+            )
             horas = 0.0
+            horas_valid = False
 
-    if st.button("Navigate"):
+    if horas_valid and st.button("Navigate"):
         st.session_state.hora_previa = st.session_state.hora_actual
         st.session_state.hora_actual += datetime.timedelta(hours=horas)
         distancia = velocidad * horas
@@ -310,7 +321,6 @@ with tab_nav:
 
     if st.button("Update DR Position"):
         update_dr_position(dr_lat_texto, dr_lon_texto)
-
 
     # 4. THE MAP OF TRUTH
     st.subheader("Map")
@@ -412,7 +422,6 @@ with tab_nav:
         st.subheader("Fixes Log")
         df_fixes = pd.DataFrame(st.session_state.log_fixes)
         st.dataframe(df_fixes, use_container_width=True, hide_index=True)
-
 
     # --- NAVIGATION LOG TABLE ---
     if st.session_state.log_navegacion:
@@ -588,7 +597,6 @@ with tab_sextant:
             st.info(
                 "You haven't taken any sights yet. Use the '\U0001f52d Take Sight' button to record your first celestial observation."
             )
-
 
 
 with tab_fix:
