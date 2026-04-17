@@ -31,7 +31,6 @@ CUERPOS_CELESTES = {
     "Deneb": Star(ra_hours=20.6905, dec_degrees=45.2803),
     "Fomalhaut": Star(ra_hours=22.9608, dec_degrees=-29.6222),
     "Regulus": Star(ra_hours=10.1395, dec_degrees=11.9672),
-    "Spica": Star(ra_hours=13.4198, dec_degrees=-11.1614),
     "Antares": Star(ra_hours=16.4901, dec_degrees=-26.4320),
 }
 
