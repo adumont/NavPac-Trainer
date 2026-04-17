@@ -98,6 +98,28 @@ def update_dr_position(dr_lat: float | str, dr_lon: float | str) -> None:
         st.error(f"Invalid DR position format: {exc}")
 
 
+def registrar_fix(lat_fix: float, lon_fix: float, mostrar_real: bool = False) -> None:
+    """Store the latest entered FIX for map display and fix log."""
+    st.session_state.fix_revelado = (lat_fix, lon_fix)
+    if mostrar_real:
+        st.session_state.revelado = True
+
+    lat_fix_dms, lon_fix_dms = formatear_lat_lon_dms(lat_fix, lon_fix)
+    lat_real_fix, lon_real_fix = st.session_state.pos_real[-1]
+    err_fix = distancia_nmi(lat_real_fix, lon_real_fix, lat_fix, lon_fix)
+
+    nueva_fix = {
+        "Step": len(st.session_state.log_fixes) + 1,
+        "Date/Time UTC": st.session_state.hora_actual.strftime("%d-%m-%Y %H:%M"),
+        "Lat Fix": lat_fix_dms,
+        "Lon Fix": lon_fix_dms,
+        "Lat Real": formatear_angulo_dms(lat_real_fix, es_latitud=True),
+        "Lon Real": formatear_angulo_dms(lon_real_fix, es_latitud=False),
+        "Fix/Real Error (nmi)": round(err_fix, 2),
+    }
+    st.session_state.log_fixes = st.session_state.log_fixes + [nueva_fix]
+
+
 # --- CONFIGURATION AND STATE ---
 st.set_page_config(
     page_title="NavPac Trainer", layout="wide", page_icon=":material/explore:"
@@ -351,22 +373,7 @@ with tab_nav:
         st.session_state.fix_revelado = None
 
     if st.button("🗺️ Reveal Real Position"):
-        st.session_state.revelado = True
-        st.session_state.fix_revelado = (u_lat_dr, u_lon_dr)
-
-        # Log Fix
-        lat_real_fix, lon_real_fix = st.session_state.pos_real[-1]
-        err_fix = distancia_nmi(lat_real_fix, lon_real_fix, u_lat_dr, u_lon_dr)
-        nueva_fix = {
-            "Step": len(st.session_state.log_fixes) + 1,
-            "Date/Time UTC": st.session_state.hora_actual.strftime("%d-%m-%Y %H:%M"),
-            "Lat Fix": lat_dr_dms,
-            "Lon Fix": lon_dr_dms,
-            "Lat Real": formatear_angulo_dms(lat_real_fix, es_latitud=True),
-            "Lon Real": formatear_angulo_dms(lon_real_fix, es_latitud=False),
-            "Fix/Real Error (nmi)": round(err_fix, 2),
-        }
-        st.session_state.log_fixes = st.session_state.log_fixes + [nueva_fix]
+        registrar_fix(u_lat_dr, u_lon_dr, mostrar_real=True)
 
     if st.session_state.revelado and st.session_state.fix_revelado is not None:
         fix_lat_mapa, fix_lon_mapa = st.session_state.fix_revelado
@@ -407,14 +414,15 @@ with tab_nav:
                 fill_opacity=0.85,
                 tooltip=tooltip,
             ).add_to(m)
-        # User's Fix
-        if st.session_state.fix_revelado is not None:
-            fix_lat_mapa, fix_lon_mapa = st.session_state.fix_revelado
-            folium.Marker(
-                (fix_lat_mapa, fix_lon_mapa),
-                icon=folium.Icon(color="green", icon="star"),
-                tooltip="Your Fix",
-            ).add_to(m)
+
+    # User's Fix
+    if st.session_state.fix_revelado is not None:
+        fix_lat_mapa, fix_lon_mapa = st.session_state.fix_revelado
+        folium.Marker(
+            (fix_lat_mapa, fix_lon_mapa),
+            icon=folium.Icon(color="green", icon="star"),
+            tooltip="Your Fix",
+        ).add_to(m)
 
     # Destination
     folium.Marker(
@@ -712,6 +720,7 @@ Fix Longitude: {formatear_angulo_dms(fix.lon, es_latitud=False)}
             with st.container(horizontal=True):
                 if st.button("Update DR Position with FIX"):
                     update_dr_position(fix.lat, fix.lon)
+                    registrar_fix(fix.lat, fix.lon, mostrar_real=False)
                     st.session_state.update_dr_with_fix_clicked = True
                     st.rerun()
                 st.write(
