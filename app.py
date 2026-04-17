@@ -59,7 +59,8 @@ PLACES = {
 
 
 def reset_voyage_state(from_coords: tuple[float, float]) -> None:
-    st.session_state.hora_actual = datetime.datetime(2026, 5, 15, 8, 0)
+    departure = st.session_state.get("departure_datetime", datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None))
+    st.session_state.hora_actual = departure
     st.session_state.pos_real = [from_coords]
     st.session_state.pos_dr = [from_coords]
     st.session_state.fixes = []
@@ -105,6 +106,7 @@ st.set_page_config(
 if "iniciado" not in st.session_state:
     st.session_state.route_from = "Cadiz"
     st.session_state.route_to = "Tenerife"
+    st.session_state.departure_datetime = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
     reset_voyage_state(PLACES[st.session_state.route_from])
     st.session_state.iniciado = True
 
@@ -116,6 +118,8 @@ if "route_from" not in st.session_state:
     st.session_state.route_from = "Cadiz"
 if "route_to" not in st.session_state:
     st.session_state.route_to = "Tenerife"
+if "departure_datetime" not in st.session_state:
+    st.session_state.departure_datetime = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
 
 from_name = st.session_state.route_from
 to_name = st.session_state.route_to
@@ -137,7 +141,13 @@ tab_ruta, tab_nav, tab_sextant, tab_fix = st.tabs(
 with tab_ruta:
     st.title(f"⛵ NavPac Trainer: {from_name} ➡️ {to_name}")
 
-    col_from, col_to, col_apply = st.columns([1, 1, 0.7])
+    col_date, col_from, col_to, col_apply = st.columns([1, 1, 1, 0.7])
+    departure_input = col_date.text_input(
+        "Departure Date/Time (UTC)",
+        value=st.session_state.departure_datetime.strftime("%d-%m-%Y %H:%M"),
+        placeholder="DD-MM-YYYY HH:MM",
+        key="departure_datetime_input",
+    )
     selected_from = col_from.selectbox(
         "From:",
         options=list(PLACES.keys()),
@@ -153,8 +163,14 @@ with tab_ruta:
     )
 
     if col_apply.button("Apply Route", use_container_width=True):
+        try:
+            selected_departure_dt = datetime.datetime.strptime(departure_input.strip(), "%d-%m-%Y %H:%M")
+        except ValueError:
+            st.error("Invalid departure date/time. Use format DD-MM-YYYY HH:MM (e.g. 17-04-2026 15:53).")
+            st.stop()
         st.session_state.route_from = selected_from
         st.session_state.route_to = selected_to
+        st.session_state.departure_datetime = selected_departure_dt
         reset_voyage_state(PLACES[selected_from])
         st.success(f"Route set: {selected_from} ➡️ {selected_to}. Voyage reset.")
         st.rerun()
@@ -164,7 +180,7 @@ with tab_ruta:
     )
 
     with st.expander("📖 Logbook - Mission Data", expanded=True):
-        hora_salida = datetime.datetime(2026, 5, 15, 8, 0)
+        hora_salida = st.session_state.departure_datetime
         cur_lat_dr, cur_lon_dr = st.session_state.pos_dr[-1]
 
         dep_lat_dms, dep_lon_dms = formatear_lat_lon_dms(from_coords[0], from_coords[1])
