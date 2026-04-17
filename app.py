@@ -139,7 +139,7 @@ tab_ruta, tab_nav, tab_sextant, tab_fix = st.tabs(
 )
 
 with tab_ruta:
-    st.title(f"⛵ NavPac Trainer: {from_name} ➡️ {to_name}")
+    st.title(f"⛵ NavPac Trainer")
 
     col_date, col_from, col_to, col_apply = st.columns([1, 1, 1, 0.7])
     departure_input = col_date.text_input(
