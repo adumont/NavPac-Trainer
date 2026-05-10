@@ -51,7 +51,7 @@ Enter the altitude intercepts (**a**, in tenths of a nautical mile, suffix `A` f
 
 1. **Start the app**
    ```
-   streamlit run app.py
+   uv run streamlit run app.py
    ```
 
 2. **Set sea state** in the sidebar to choose how much hidden error accumulates.
@@ -78,11 +78,11 @@ Repeat steps 4–7 for each leg of your selected route.
 
 ## Running the App
 
-**Prerequisites:** Python 3.11+
+**Prerequisites:** Python 3.11+ and [uv](https://docs.astral.sh/uv/#installation)
 
 ```bash
-pip install -r requirements.txt
-streamlit run app.py
+uv sync
+uv run streamlit run app.py
 ```
 
 The first run downloads the DE421 ephemeris (~17 MB) if not already present locally.
