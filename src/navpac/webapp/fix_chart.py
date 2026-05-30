@@ -104,7 +104,7 @@ def plot_fix_chart(
     max_dist = max(math.hypot(px - cx, py - cy) for px, py in pts)
     half = max(max_dist * zoom, 4.0)
 
-    fig, ax = plt.subplots(figsize=(8, 8))
+    fig, ax = plt.subplots(figsize=(6, 6))
     ax.set_aspect("equal")
     ax.set_title("Fix LOP Chart", fontsize=14, fontweight="bold")
     ax.set_xlabel("<-- West -- East --> (nmi)")

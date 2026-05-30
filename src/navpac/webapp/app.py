@@ -714,7 +714,7 @@ Longitude: {lon_dr_dms}
         zoom = st.slider("Chart Zoom", 0.1, 3.0, 1.5, 0.1)
 
         fig = plot_fix_chart(dr, intercepts, fix, zoom=zoom)
-        st.pyplot(fig, use_container_width=False)
+        st.pyplot(fig, width=700)
 
         st.write("### Fix result:")
         st.markdown(
