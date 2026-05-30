@@ -1,3 +1,6 @@
+import pathlib
+import sys
+
 import streamlit as st
 import datetime
 import random
@@ -8,7 +11,7 @@ from streamlit_folium import st_folium
 from skyfield.api import Star
 import pandas as pd
 
-from angulos import (
+from navpac.angulos import (
     formatear_angulo_dms,
     formatear_lat_lon_dms,
     formatear_navpac_dmmss,
@@ -17,7 +20,7 @@ from angulos import (
     formatear_grados_mm,
 )
 
-from navigation import (
+from navpac.navigation import (
     mover_barco,
     lectura_sextante,
     cuerpos_visibles,
@@ -59,7 +62,10 @@ PLACES = {
 
 
 def reset_voyage_state(from_coords: tuple[float, float]) -> None:
-    departure = st.session_state.get("departure_datetime", datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None))
+    departure = st.session_state.get(
+        "departure_datetime",
+        datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None),
+    )
     st.session_state.hora_actual = departure
     st.session_state.pos_real = [from_coords]
     st.session_state.pos_dr = [from_coords]
@@ -128,7 +134,9 @@ st.set_page_config(
 if "iniciado" not in st.session_state:
     st.session_state.route_from = "Cadiz"
     st.session_state.route_to = "Tenerife"
-    st.session_state.departure_datetime = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    st.session_state.departure_datetime = datetime.datetime.now(
+        datetime.timezone.utc
+    ).replace(tzinfo=None)
     reset_voyage_state(PLACES[st.session_state.route_from])
     st.session_state.iniciado = True
 
@@ -141,7 +149,9 @@ if "route_from" not in st.session_state:
 if "route_to" not in st.session_state:
     st.session_state.route_to = "Tenerife"
 if "departure_datetime" not in st.session_state:
-    st.session_state.departure_datetime = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    st.session_state.departure_datetime = datetime.datetime.now(
+        datetime.timezone.utc
+    ).replace(tzinfo=None)
 
 from_name = st.session_state.route_from
 to_name = st.session_state.route_to
@@ -161,7 +171,7 @@ tab_ruta, tab_nav, tab_sextant, tab_fix = st.tabs(
 )
 
 with tab_ruta:
-    st.title(f"⛵ NavPac Trainer")
+    st.title("⛵ NavPac Trainer")
 
     col_date, col_from, col_to, col_apply = st.columns([1, 1, 1, 0.7])
     departure_input = col_date.text_input(
@@ -186,9 +196,13 @@ with tab_ruta:
 
     if col_apply.button("Apply Route", use_container_width=True):
         try:
-            selected_departure_dt = datetime.datetime.strptime(departure_input.strip(), "%d-%m-%Y %H:%M")
+            selected_departure_dt = datetime.datetime.strptime(
+                departure_input.strip(), "%d-%m-%Y %H:%M"
+            )
         except ValueError:
-            st.error("Invalid departure date/time. Use format DD-MM-YYYY HH:MM (e.g. 17-04-2026 15:53).")
+            st.error(
+                "Invalid departure date/time. Use format DD-MM-YYYY HH:MM (e.g. 17-04-2026 15:53)."
+            )
             st.stop()
         st.session_state.route_from = selected_from
         st.session_state.route_to = selected_to
@@ -478,7 +492,6 @@ with tab_sextant:
             "No celestial bodies visible (alt > 5°) at this time and position. Advance the time."
         )
     else:
-
         # Sort: Sun and Moon always on top if visible, then rest by descending altitude
         _ordenados = sorted(_visibles.items(), key=lambda x: -x[1][0])
         _sol_visible = "Sol" in _visibles
@@ -586,8 +599,8 @@ with tab_sextant:
         - Date: `{st.session_state.hora_actual.strftime("%m.%d%Y")}`
         - Time: `{st.session_state.hora_actual.strftime("%H:%M")} UTC`
         - He: `{_altura_ojo_ft:.1f} ft`
-        - Hs: `{formatear_navpac_dmmss(_obs['hs'])}` ({formatear_grados_minutos_decimal(_obs['hs'])})
-        - Body: {f"`{NAVPAC_STAR_INDEX[_obs['cuerpo']]}` (`{cuerpo_navpac}`)" if _obs['cuerpo'] in NAVPAC_STAR_INDEX else f"`{cuerpo_navpac}`"}
+        - Hs: `{formatear_navpac_dmmss(_obs["hs"])}` ({formatear_grados_minutos_decimal(_obs["hs"])})
+        - Body: {f"`{NAVPAC_STAR_INDEX[_obs['cuerpo']]}` (`{cuerpo_navpac}`)" if _obs["cuerpo"] in NAVPAC_STAR_INDEX else f"`{cuerpo_navpac}`"}
         """
                 )
 
@@ -639,7 +652,7 @@ Longitude: {lon_dr_dms}
     )
     # Input DR lat/lon (DDºmm:ss),  two  columns
 
-    from angulos import parse_dms
+    from navpac.angulos import parse_dms
 
     # we write the converted decimal DR position below the inputs, or an error if the format is invalid
     dr_lat_decimal = parse_dms(dr_lat_texto)
@@ -681,8 +694,8 @@ Longitude: {lon_dr_dms}
         "ZN3 (azimuth from north)", value="", on_change=reset_update_dr_with_fix_flag
     )
     # Show FIX:
-    from lop import compute_fix_multi
-    from tipos import LOP, Position
+    from navpac.lop import compute_fix_multi
+    from navpac.tipos import LOP, Position
 
     dr = Position(lat=dr_lat_decimal, lon=dr_lon_decimal)
 
@@ -731,3 +744,12 @@ Fix Longitude: {formatear_angulo_dms(fix.lon, es_latitud=False)}
         st.warning(
             "Please enter at least two valid altitude intercept (a) and azimuth (ZN) to compute the FIX."
         )
+
+
+import streamlit.web.cli
+
+
+def main():
+    app = pathlib.Path(__file__).with_name("app.py")
+    sys.argv = ["streamlit", "run", str(app)]
+    sys.exit(streamlit.web.cli.main())

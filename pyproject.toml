@@ -16,6 +16,16 @@ dependencies = [
     "reportlab",
 ]
 
+[project.scripts]
+webapp = "navpac.webapp.app:main"
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [dependency-groups]
 dev = [
     "pytest",

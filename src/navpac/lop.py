@@ -1,9 +1,9 @@
 """lines of position lines (LOP) calculations and plotting"""
 
 import math
-from typing import List, Tuple
+from typing import List
 
-from tipos import LOP, Position
+from navpac.tipos import LOP, Position
 
 
 def solve_fix_least_squares(lops: List[LOP]) -> tuple[float, float]:
@@ -59,7 +59,8 @@ def apply_offset(dr: Position, x_east: float, y_north: float) -> Position:
 
 
 def compute_fix_multi(
-    dr: Position, lops: List[LOP]  # (a, zn_deg)
+    dr: Position,
+    lops: List[LOP],  # (a, zn_deg)
 ) -> Position:
 
     x, y = solve_fix_least_squares(lops)

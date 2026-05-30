@@ -1,8 +1,6 @@
-import math
 import re
-from dataclasses import dataclass
 
-from tipos import Position
+from navpac.tipos import Position
 
 
 def parse_dms(value: str) -> float:
@@ -121,6 +119,7 @@ def formatear_lat_lon_dms(lat: float, lon: float) -> tuple[str, str]:
 def formatear_position(pos: Position) -> tuple[str, str]:
     """Formats a Position to DMS with hemisphere. Example: Position(36.5275, -6.2833) -> ('36º31:39 N', '06º17:00 W')"""
     return formatear_lat_lon_dms(pos.lat, pos.lon)
+
 
 def formatear_navpac_dmmss(valor: float) -> str:
     """Formats a decimal angle to DD.MMSS with rounded minutes and seconds.

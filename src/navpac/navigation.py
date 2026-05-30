@@ -1,4 +1,6 @@
 import math
+from pathlib import Path
+
 from streamlit import cache_resource
 from skyfield.api import Loader, wgs84, Star
 
@@ -77,18 +79,11 @@ def mover_barco(lat, lon, rumbo, distancia):
 
 @cache_resource
 def cargar_skyfield():
-    from pathlib import Path
-
-    base_dir = Path(__file__).resolve().parent
-    ephem_path = base_dir.parent / "Polaris" / "de421.bsp"
+    # Project root is 3 levels up from src/navpac/navigation.py
+    base_dir = Path(__file__).resolve().parent.parent.parent
     loader = Loader(str(base_dir / ".skyfield"))
     ts = loader.timescale()
-
-    if ephem_path.exists():
-        eph = loader(str(ephem_path))
-    else:
-        eph = loader("de421.bsp")
-
+    eph = loader("de421.bsp")
     return ts, eph
 
 

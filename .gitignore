@@ -22,6 +22,9 @@ venv.bak/
 .DS_Store
 Thumbs.db
 
+# Build artifacts
+*.egg-info/
+
 # Temp / output files
 pytest_output*.txt
 pytest_err*.txt
