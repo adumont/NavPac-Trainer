@@ -712,7 +712,7 @@ Longitude: {lon_dr_dms}
         fix = solve_fix_from_intercepts(intercepts, dr)
 
         fig = plot_fix_chart(dr, intercepts, fix)
-        st.pyplot(fig)
+        st.pyplot(fig, use_container_width=False)
 
         st.write("### Fix result:")
         st.markdown(
