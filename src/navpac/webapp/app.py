@@ -9,28 +9,26 @@ import re
 
 import folium
 from streamlit_folium import st_folium
-from skyfield.api import Star
 import pandas as pd
+
+from celnav_core.core.almanac import body_alt_az_multiple, visible_bodies
+from celnav_core.core.reduction import haversine_distance, solve_fix_from_intercepts
+from celnav_core.core.sight import compute_ho
+from celnav_core.models import Position
+from celnav_core.utils.angles import format_navpac_dmmss, parse_dms_string
+from celnav_core.config import NAVPAC_STAR_INDEX, RADIOS_CUERPOS_KM
 
 from navpac.angulos import (
     formatear_angulo_dms,
     formatear_lat_lon_dms,
-    formatear_navpac_dmmss,
-    dms_texto_a_decimal,
     formatear_grados_minutos_decimal,
     formatear_grados_mm,
 )
 
 from navpac.navigation import (
     mover_barco,
-    lectura_sextante,
-    cuerpos_visibles,
-    distancia_nmi,
     CADIZ,
     TENERIFE,
-    RADIOS_CUERPOS_KM,
-    CUERPOS_CELESTES,
-    NAVPAC_STAR_INDEX,
 )
 
 
@@ -81,9 +79,9 @@ def reset_voyage_state(from_coords: tuple[float, float]) -> None:
 def update_dr_position(dr_lat: float | str, dr_lon: float | str) -> None:
     try:
         if isinstance(dr_lat, str):
-            dr_lat = dms_texto_a_decimal(dr_lat, es_latitud=True)
+            dr_lat = parse_dms_string(dr_lat)
         if isinstance(dr_lon, str):
-            dr_lon = dms_texto_a_decimal(dr_lon, es_latitud=False)
+            dr_lon = parse_dms_string(dr_lon)
 
         st.session_state.pos_dr[-1] = (dr_lat, dr_lon)
 
@@ -97,7 +95,9 @@ def update_dr_position(dr_lat: float | str, dr_lon: float | str) -> None:
             )
 
             n_lat_re, n_lon_re = st.session_state.pos_real[-1]
-            diff_nmi = distancia_nmi(dr_lat, dr_lon, n_lat_re, n_lon_re)
+            diff_nmi = haversine_distance(
+                Position(lat=dr_lat, lon=dr_lon), Position(lat=n_lat_re, lon=n_lon_re)
+            )
             st.session_state.log_navegacion[-1]["Error (nmi)"] = round(diff_nmi, 2)
 
         st.success("DR position updated.")
@@ -113,7 +113,9 @@ def registrar_fix(lat_fix: float, lon_fix: float, mostrar_real: bool = False) ->
 
     lat_fix_dms, lon_fix_dms = formatear_lat_lon_dms(lat_fix, lon_fix)
     lat_real_fix, lon_real_fix = st.session_state.pos_real[-1]
-    err_fix = distancia_nmi(lat_real_fix, lon_real_fix, lat_fix, lon_fix)
+    err_fix = haversine_distance(
+        Position(lat=lat_real_fix, lon=lon_real_fix), Position(lat=lat_fix, lon=lon_fix)
+    )
 
     nueva_fix = {
         "Step": len(st.session_state.log_fixes) + 1,
@@ -212,8 +214,9 @@ with tab_ruta:
         st.success(f"Route set: {selected_from} ➡️ {selected_to}. Voyage reset.")
         st.rerun()
 
-    route_nmi = distancia_nmi(
-        from_coords[0], from_coords[1], to_coords[0], to_coords[1]
+    route_nmi = haversine_distance(
+        Position(lat=from_coords[0], lon=from_coords[1]),
+        Position(lat=to_coords[0], lon=to_coords[1]),
     )
 
     with st.expander("📖 Logbook - Mission Data", expanded=True):
@@ -250,9 +253,12 @@ with tab_ruta:
         for (lat_a, lon_a), (lat_b, lon_b) in zip(
             st.session_state.pos_dr[:-1], st.session_state.pos_dr[1:]
         ):
-            dr_traveled_nmi += distancia_nmi(lat_a, lon_a, lat_b, lon_b)
-        dr_remaining_est_nmi = distancia_nmi(
-            cur_lat_dr, cur_lon_dr, to_coords[0], to_coords[1]
+            dr_traveled_nmi += haversine_distance(
+                Position(lat=lat_a, lon=lon_a), Position(lat=lat_b, lon=lon_b)
+            )
+        dr_remaining_est_nmi = haversine_distance(
+            Position(lat=cur_lat_dr, lon=cur_lon_dr),
+            Position(lat=to_coords[0], lon=to_coords[1]),
         )
 
         col_departure.metric("Distance Traveled", f"{dr_traveled_nmi:.1f} nmi")
@@ -326,7 +332,9 @@ with tab_nav:
         st.session_state.pos_real = st.session_state.pos_real + [(n_lat_re, n_lon_re)]
 
         # Log entry
-        diff_nmi = distancia_nmi(n_lat_dr, n_lon_dr, n_lat_re, n_lon_re)
+        diff_nmi = haversine_distance(
+            Position(lat=n_lat_dr, lon=n_lon_dr), Position(lat=n_lat_re, lon=n_lon_re)
+        )
         nueva_entrada = {
             "Departure Date UTC": st.session_state.hora_previa.strftime(
                 "%d-%m-%Y %H:%M"
@@ -394,7 +402,10 @@ with tab_nav:
         fix_lat_mapa, fix_lon_mapa = st.session_state.fix_revelado
         lat_real, lon_real = st.session_state.pos_real[-1]
         lat_real_dms, lon_real_dms = formatear_lat_lon_dms(lat_real, lon_real)
-        error_nmi = distancia_nmi(lat_real, lon_real, fix_lat_mapa, fix_lon_mapa)
+        error_nmi = haversine_distance(
+            Position(lat=lat_real, lon=lon_real),
+            Position(lat=fix_lat_mapa, lon=fix_lon_mapa),
+        )
         st.success(f"Real position: Lat {lat_real_dms} | Lon {lon_real_dms}")
         st.info(f"Your Fix error: {error_nmi:.2f} nmi")
 
@@ -483,7 +494,9 @@ with tab_sextant:
     _dt_utc = st.session_state.hora_actual.replace(tzinfo=datetime.timezone.utc)
 
     try:
-        _visibles = cuerpos_visibles(_lat_obs, _lon_obs, _dt_utc)
+        _pos_obs = Position(lat=_lat_obs, lon=_lon_obs)
+        _visible_names = visible_bodies(_dt_utc, _pos_obs, min_alt=5.0)
+        _visibles = body_alt_az_multiple(_visible_names, _dt_utc, _pos_obs)
     except Exception as _exc:
         _visibles = {}
         st.error(f"Error calculating visible bodies: {_exc}")
@@ -495,18 +508,18 @@ with tab_sextant:
     else:
         # Sort: Sun and Moon always on top if visible, then rest by descending altitude
         _ordenados = sorted(_visibles.items(), key=lambda x: -x[1][0])
-        _sol_visible = "Sol" in _visibles
-        _luna_visible = "Luna" in _visibles
-        _hay_estrellas = any(isinstance(CUERPOS_CELESTES[n], Star) for n in _visibles)
+        _sol_visible = "Sun" in _visibles
+        _luna_visible = "Moon" in _visibles
+        _hay_estrellas = any(n in NAVPAC_STAR_INDEX for n in _visibles)
 
         # Build list with Sun and Moon first if present
         _ordenados_final = []
         if _sol_visible:
-            _ordenados_final.append(("Sol", _visibles["Sol"]))
+            _ordenados_final.append(("Sun", _visibles["Sun"]))
         if _luna_visible:
-            _ordenados_final.append(("Luna", _visibles["Luna"]))
+            _ordenados_final.append(("Moon", _visibles["Moon"]))
         for n, v in _ordenados:
-            if n not in ("Sol", "Luna"):
+            if n not in ("Sun", "Moon"):
                 _ordenados_final.append((n, v))
 
         if _sol_visible:
@@ -549,43 +562,29 @@ with tab_sextant:
         if st.button("🔭 Take Sight", key="btn_tomar_altura"):
             lat_real, lon_real = st.session_state.pos_real[-1]
             try:
-                _obs_real = lectura_sextante(
-                    _cuerpo_sel,
-                    lat_real,
-                    lon_real,
-                    _dt_utc,
-                    altura_ojo_m=_altura_ojo_m,
-                    limbo=_limbo,
+                _real_pos = Position(lat=lat_real, lon=lon_real)
+                _reading = compute_ho(
+                    _cuerpo_sel, _dt_utc, _real_pos, he_ft=_altura_ojo_ft, limb=_limbo
                 )
                 _error_obs_min = 0.0
-                # if "Medio" in dificultad:
-                #     _error_obs_min = random.uniform(-0.15, 0.15)
-                # elif "Hard" in dificultad:
-                #     _error_obs_min = random.uniform(-0.35, 0.35)
 
-                _hs_obs = _obs_real["hs"] + (_error_obs_min / 60.0)
+                _hs_obs = _reading.hs + (_error_obs_min / 60.0)
                 _obs = {
                     "cuerpo": _cuerpo_sel,
                     "hs": _hs_obs,
                     "altura_ojo_ft": _altura_ojo_ft,
                     "altura_ojo_m": _altura_ojo_m,
                     "limbo": _limbo,
-                    "az": _obs_real["az"],
-                    "refraccion_min": _obs_real["refraccion_min"],
-                    "dip_min": _obs_real["dip_min"],
-                    "semidiametro_min": _obs_real["semidiametro_min"],
+                    "az": _reading.azimuth,
+                    "refraccion_min": _reading.refraction_arcmin,
+                    "dip_min": _reading.dip_arcmin,
+                    "semidiametro_min": _reading.semidiameter_arcmin,
                     "error_obs_min": _error_obs_min,
                     "fecha": st.session_state.hora_actual.strftime("%d-%m-%Y %H:%M"),
                 }
 
                 # Show body name in uppercase, and for Sun/Moon add L/U according to limb
-                # Show SUN/MOON instead of Sol/Luna
-                if _obs["cuerpo"] == "Sol":
-                    cuerpo_upper = "SUN"
-                elif _obs["cuerpo"] == "Luna":
-                    cuerpo_upper = "MOON"
-                else:
-                    cuerpo_upper = _obs["cuerpo"].upper()
+                cuerpo_upper = _obs["cuerpo"].upper()
                 cuerpo_navpac = cuerpo_upper
                 if cuerpo_upper in ("SUN", "MOON"):
                     if _obs["limbo"] == "Lower":
@@ -600,7 +599,7 @@ with tab_sextant:
         - Date: `{st.session_state.hora_actual.strftime("%m.%d%Y")}`
         - Time: `{st.session_state.hora_actual.strftime("%H:%M")} UTC`
         - He: `{_altura_ojo_ft:.1f} ft`
-        - Hs: `{formatear_navpac_dmmss(_obs["hs"])}` ({formatear_grados_minutos_decimal(_obs["hs"])})
+        - Hs: `{format_navpac_dmmss(_obs["hs"])}` ({formatear_grados_minutos_decimal(_obs["hs"])})
         - Body: {f"`{NAVPAC_STAR_INDEX[_obs['cuerpo']]}` (`{cuerpo_navpac}`)" if _obs["cuerpo"] in NAVPAC_STAR_INDEX else f"`{cuerpo_navpac}`"}
         """
                 )
@@ -616,7 +615,7 @@ with tab_sextant:
                     "Body": cuerpo_navpac,
                     "Azimuth (º)": round(_obs["az"], 2),
                     "Semi-diameter (min)": round(_obs["semidiametro_min"], 2),
-                    "Hs (DMMSS)": formatear_navpac_dmmss(_obs["hs"]),
+                    "Hs (DMMSS)": format_navpac_dmmss(_obs["hs"]),
                     "Hs (decimal)": round(_obs["hs"], 4),
                 }
                 st.session_state.log_observaciones = (
@@ -653,11 +652,9 @@ Longitude: {lon_dr_dms}
     )
     # Input DR lat/lon (DDºmm:ss),  two  columns
 
-    from navpac.angulos import parse_dms
-
     # we write the converted decimal DR position below the inputs, or an error if the format is invalid
-    dr_lat_decimal = parse_dms(dr_lat_texto)
-    dr_lon_decimal = parse_dms(dr_lon_texto)
+    dr_lat_decimal = parse_dms_string(dr_lat_texto)
+    dr_lon_decimal = parse_dms_string(dr_lon_texto)
 
     # now we can input up to 3 altitude intercept (a float A|T) and the azimuth (ZN float, ZN represents the azimuth measured from the north)
 
@@ -695,26 +692,23 @@ Longitude: {lon_dr_dms}
         "ZN3 (azimuth from north)", value="", on_change=reset_update_dr_with_fix_flag
     )
     # Show FIX:
-    from navpac.lop import compute_fix_multi
-    from navpac.tipos import LOP, Position
-
     dr = Position(lat=dr_lat_decimal, lon=dr_lon_decimal)
 
-    lops = []
+    intercepts = []
     for a, zn in [(a1, zn1), (a2, zn2), (a3, zn3)]:
         if not a.strip() or not zn.strip():
             continue
         try:
             a_val = float(a[:-1].strip())
             zn_val = float(zn)
-            lops.append(LOP(a_val, zn_val))
+            intercepts.append((a_val, zn_val))
         except ValueError:
             st.warning(
                 f"Invalid input for a or ZN: '{a}' or '{zn}'. Skipping this LOP."
             )
 
-    if len(lops) >= 2:
-        fix = compute_fix_multi(dr, lops)
+    if len(intercepts) >= 2:
+        fix = solve_fix_from_intercepts(intercepts, dr)
 
         st.write("### Fix result:")
         st.markdown(

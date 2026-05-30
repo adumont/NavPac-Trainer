@@ -14,7 +14,11 @@ dependencies = [
     "geographiclib",
     "folium",
     "reportlab",
+    "celnav-core",
 ]
+
+[tool.uv.sources]
+celnav-core = { git = "https://github.com/adumont/celnav-core.git" }
 
 [project.scripts]
 webapp = "navpac.webapp.app:main"

@@ -23,8 +23,16 @@
 
 # Architecture
 
-TBD
+- Two-repo: `celnav-core` (celestial nav library), `NavPac-Trainer` (Streamlit app)
+- NavPac-Trainer depends on celnav-core via git URL: `git+https://github.com/adumont/celnav-core.git`
+- `src/navpac/webapp/app.py` is the Streamlit app entry point
+- `src/navpac/navigation.py` has DR simulation only (`mover_barco`, constants)
+- `src/navpac/angulos.py` has NavPac-specific display formatters only
+- `src/navpac/tipos.py` re-exports `Position` from celnav-core
 
 # Key decisions
 
-TBD
+- celnav-core dependency: git URL, not local path (local path for dev only)
+- Coverage `fail_under=80` accepted as target; current ~3% from navigation tests only
+- Body names: English ("Sun", "Moon") not Spanish ("Sol", "Luna")
+- `solve_fix_from_intercepts()` replaces both `lop.py` functions

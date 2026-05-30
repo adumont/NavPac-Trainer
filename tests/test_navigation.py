@@ -2,13 +2,8 @@ import math
 
 import pytest
 
-from navpac.navigation import (
-    CADIZ,
-    TENERIFE,
-    CUERPOS_CELESTES,
-    NAVPAC_STAR_INDEX,
-    mover_barco,
-)
+from celnav_core.config import NAVPAC_STAR_INDEX
+from navpac.navigation import CADIZ, TENERIFE, mover_barco
 
 
 class TestConstants:
@@ -17,20 +12,6 @@ class TestConstants:
 
     def test_tenerife_coords(self):
         assert TENERIFE == (28.4667, -16.2500)
-
-
-class TestCuerposCelestes:
-    def test_sun_present(self):
-        assert "Sol" in CUERPOS_CELESTES
-
-    def test_moon_present(self):
-        assert "Luna" in CUERPOS_CELESTES
-
-    def test_polaris_present(self):
-        assert "Polaris" in CUERPOS_CELESTES
-
-    def test_expected_count(self):
-        assert len(CUERPOS_CELESTES) == 20
 
 
 class TestNavpacStarIndex:
