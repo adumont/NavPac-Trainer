@@ -197,7 +197,7 @@ with tab_ruta:
         key="route_to_selector",
     )
 
-    if col_apply.button("Apply Route", use_container_width=True):
+    if col_apply.button("Apply Route", width='stretch'):
         try:
             selected_departure_dt = datetime.datetime.strptime(
                 departure_input.strip(), "%d-%m-%Y %H:%M"
@@ -471,7 +471,7 @@ with tab_nav:
     if st.session_state.log_fixes:
         st.subheader("Fixes Log")
         df_fixes = pd.DataFrame(st.session_state.log_fixes)
-        st.dataframe(df_fixes, use_container_width=True, hide_index=True)
+        st.dataframe(df_fixes, width='stretch', hide_index=True)
 
     # --- NAVIGATION LOG TABLE ---
     if st.session_state.log_navegacion:
@@ -483,7 +483,7 @@ with tab_nav:
             or not st.session_state.show_real_data
         ):
             df = df.drop(columns=["Lat Real", "Lon Real", "Error (nmi)"])
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.dataframe(df, width='stretch', hide_index=True)
         st.toggle("Show real data", value=False, key="show_real_data")
 
 with tab_sextant:
@@ -629,7 +629,7 @@ with tab_sextant:
             import pandas as pd
 
             df_obs = pd.DataFrame(st.session_state.log_observaciones)
-            st.dataframe(df_obs, use_container_width=True, hide_index=True)
+            st.dataframe(df_obs, width='stretch', hide_index=True)
         else:
             st.info(
                 "You haven't taken any sights yet. Use the '\U0001f52d Take Sight' button to record your first celestial observation."
