@@ -14,6 +14,8 @@ from celnav_core.models import Position
 from celnav_core.utils.angles import format_navpac_dmmss, parse_dms_string
 from celnav_core.config import NAVPAC_STAR_INDEX, RADIOS_CUERPOS_KM
 
+from navpac.webapp.fix_chart import plot_fix_chart
+
 from navpac.angulos import (
     formatear_angulo_dms,
     formatear_lat_lon_dms,
@@ -193,7 +195,7 @@ with tab_ruta:
         key="route_to_selector",
     )
 
-    if col_apply.button("Apply Route", width='stretch'):
+    if col_apply.button("Apply Route", width="stretch"):
         try:
             selected_departure_dt = datetime.datetime.strptime(
                 departure_input.strip(), "%d-%m-%Y %H:%M"
@@ -467,7 +469,7 @@ with tab_nav:
     if st.session_state.log_fixes:
         st.subheader("Fixes Log")
         df_fixes = pd.DataFrame(st.session_state.log_fixes)
-        st.dataframe(df_fixes, width='stretch', hide_index=True)
+        st.dataframe(df_fixes, width="stretch", hide_index=True)
 
     # --- NAVIGATION LOG TABLE ---
     if st.session_state.log_navegacion:
@@ -479,7 +481,7 @@ with tab_nav:
             or not st.session_state.show_real_data
         ):
             df = df.drop(columns=["Lat Real", "Lon Real", "Error (nmi)"])
-        st.dataframe(df, width='stretch', hide_index=True)
+        st.dataframe(df, width="stretch", hide_index=True)
         st.toggle("Show real data", value=False, key="show_real_data")
 
 with tab_sextant:
@@ -625,7 +627,7 @@ with tab_sextant:
             import pandas as pd
 
             df_obs = pd.DataFrame(st.session_state.log_observaciones)
-            st.dataframe(df_obs, width='stretch', hide_index=True)
+            st.dataframe(df_obs, width="stretch", hide_index=True)
         else:
             st.info(
                 "You haven't taken any sights yet. Use the '\U0001f52d Take Sight' button to record your first celestial observation."
@@ -695,7 +697,10 @@ Longitude: {lon_dr_dms}
         if not a.strip() or not zn.strip():
             continue
         try:
-            a_val = float(a[:-1].strip())
+            raw = a.strip()
+            suffix = raw[-1].upper()
+            sign = -1.0 if suffix == "T" else 1.0
+            a_val = sign * float(raw[:-1].strip())
             zn_val = float(zn)
             intercepts.append((a_val, zn_val))
         except ValueError:
@@ -705,6 +710,9 @@ Longitude: {lon_dr_dms}
 
     if len(intercepts) >= 2:
         fix = solve_fix_from_intercepts(intercepts, dr)
+
+        fig = plot_fix_chart(dr, intercepts, fix)
+        st.pyplot(fig)
 
         st.write("### Fix result:")
         st.markdown(
@@ -735,4 +743,3 @@ Fix Longitude: {formatear_angulo_dms(fix.lon, es_latitud=False)}
         st.warning(
             "Please enter at least two valid altitude intercept (a) and azimuth (ZN) to compute the FIX."
         )
-
