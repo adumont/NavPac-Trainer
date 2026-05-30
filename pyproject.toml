@@ -21,7 +21,7 @@ dependencies = [
 celnav-core = { git = "https://github.com/adumont/celnav-core.git" }
 
 [project.scripts]
-webapp = "navpac.launcher:main"
+webapp = "navpac.webapp.launcher:main"
 
 [build-system]
 requires = ["setuptools>=64"]

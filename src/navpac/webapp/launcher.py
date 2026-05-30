@@ -5,6 +5,6 @@ import streamlit.web.cli
 
 
 def main():
-    app = pathlib.Path(__file__).parent / "webapp" / "app.py"
+    app = pathlib.Path(__file__).with_name("app.py")
     sys.argv = ["streamlit", "run", str(app)]
     sys.exit(streamlit.web.cli.main())
