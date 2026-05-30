@@ -38,12 +38,19 @@ Current code uses **Spanish** names internally ("Sol", "Luna", "Marte", etc.). c
 
 ---
 
+## Workflow
+
+- [x] Mark phases in PLAN.md as they are completed (checkboxes `[x]`)
+- [x] Keep commits clean and individual per phase
+
+---
+
 ## Phase 0: Plan Confirmation
 
-- [ ] Review this PLAN.md
-- [ ] Confirm Phase 1 test scope
-- [ ] Confirm Phase 2 celnav-core additions
-- [ ] Confirm Phase 3 migration approach (direct refactor, not wrappers)
+- [x] Review this PLAN.md
+- [x] Confirm Phase 1 test scope
+- [x] Confirm Phase 2 celnav-core additions
+- [x] Confirm Phase 3 migration approach (direct refactor, not wrappers)
 
 ---
 
@@ -51,69 +58,34 @@ Current code uses **Spanish** names internally ("Sol", "Luna", "Marte", etc.). c
 
 **Rationale:** These two modules will be most affected by the migration. Writing tests first ensures we know exactly what behavior to preserve.
 
+### Phase 1.0 — Move source code to `src/` layout
+
+- [x] Create `src/navpac/` package with `__init__.py`
+- [x] Move `angulos.py`, `navigation.py`, `lop.py`, `tipos.py` into `src/navpac/`
+- [x] Move `app.py` into `src/navpac/webapp/app.py` with updated `navpac.*` imports
+- [x] Create `src/navpac/webapp/main.py` with Streamlit launcher entry point (later collapsed into `app.py`)
+- [x] Add `[project.scripts]` entry point `webapp = "navpac.webapp.app:main"`
+- [x] Add `[build-system]` and `[tool.setuptools.packages.find]` to `pyproject.toml`
+- [x] Remove root-level `.py` files (now in `src/`)
+- [x] `uv run webapp` starts successfully
+
 ### Phase 1.1 — Setup test infrastructure
 
-- [ ] Create `tests/` directory at repo root
-- [ ] Create `tests/__init__.py` (empty)
-- [ ] Create `tests/conftest.py` with shared fixtures (see below)
-- [ ] Add test configuration to `pyproject.toml`:
+- [x] Create `tests/` directory at repo root
+- [x] Create `tests/__init__.py` (empty)
+- [x] Create `tests/conftest.py` with shared fixtures
+- [x] Add test configuration to `pyproject.toml`
 
-```toml
-[tool.pytest.ini_options]
-testpaths = ["tests"]
+### Phase 1.2 — `tests/test_navigation.py` (only surviving functions)
 
-[tool.coverage.report]
-show_missing = true
-fail_under = 80
+- [x] `test_mover_barco` — 8 tests all pass
+- [x] `test constants` — CADIZ, TENERIFE, CUERPOS_CELESTES, NAVPAC_STAR_INDEX
 
-[tool.coverage.run]
-source = ["."]
-```
+**Rationale:** Only functions that survive the migration (not replaced by celnav-core) get tests. Functions like `correccion_dip_minutos`, `semidiametro_minutos`, `distancia_nmi`, `lectura_sextante`, `cuerpos_visibles` will be replaced — skip those.
 
-### Phase 1.2 — `tests/test_navigation.py`
-
-#### Test file structure:
-
-```python
-"""Tests for navigation.py — pure functions + Skyfield-dependent functions."""
-```
-
-#### A. Pure math functions (no mocking needed)
-
-**`test_correccion_dip_minutos`:**
-
-| Test | Input | Expected | Notes |
-|------|-------|----------|-------|
-| `test_zero_height` | `altura_ojo_m=0` | `0.0` | Boundary |
-| `test_negative_height` | `altura_ojo_m=-1` | `0.0` | Edge case, function clamps to 0 |
-| `test_positive_height` | `altura_ojo_m=3.048` (10ft) | `1.76*sqrt(3.048)` ≈ `3.072` | Normal case |
-| `test_increases_with_height` | Compare 10m vs 20m | Second result > first | Monotonicity |
-| `test_known_value` | `altura_ojo_m=10` | `1.76*sqrt(10)` ≈ `5.566` | Exact formula check |
-
-**`test_semidiametro_minutos`:**
-
-| Test | Input | Expected | Notes |
-|------|-------|----------|-------|
-| `test_sun_semidiameter` | `nombre="Sol"`, `distancia_km=149600000` | `asin(695700/149600000) * 180/pi * 60` ≈ `15.98` | Sun at mean distance |
-| `test_moon_semidiameter` | `nombre="Luna"`, `distancia_km=384400` | `asin(1737.4/384400) * 180/pi * 60` ≈ `15.53` | Moon at mean distance |
-| `test_star_no_semidiameter` | `nombre="Sirius"`, `distancia_km=any` | `0.0` | No radius in dict |
-| `test_unknown_body` | `nombre="Foobar"`, `distancia_km=any` | `0.0` | Not in RADIOS_CUERPOS_KM |
-| `test_zero_distance` | `nombre="Sol"`, `distancia_km=0` | `0.0` | Edge case (div by zero guard) |
+#### A. Surviving functions
 
 **`test_mover_barco`:**
-
-| Test | Input | Expected | Notes |
-|------|-------|----------|-------|
-| `test_no_movement` | `lat=0, lon=0, rumbo=0, distancia=0` | `(0, 0)` | Identity |
-| `test_north_travel` | `lat=0, lon=0, rumbo=0, distancia=60` | `(1.0, 0)` | 60 nmi North = 1° latitude |
-| `test_east_travel_at_equator` | `lat=0, lon=0, rumbo=90, distancia=60` | `(0, 1.0)` | 60 nmi East at equator = 1° longitude |
-| `test_east_travel_at_mid_lat` | `lat=40, lon=0, rumbo=90, distancia=60` | `(40, ≈1/cos(40°) ≈ 1.305)` | Convergence of meridians |
-| `test_south_travel` | `lat=10, lon=0, rumbo=180, distancia=60` | `(9.0, 0)` | 60 nmi South |
-| `test_west_travel_at_equator` | `lat=0, lon=0, rumbo=270, distancia=60` | `(0, -1.0)` | |
-| `test_rhumb_045` | `lat=0, lon=0, rumbo=45, distancia=60*sqrt(2)` | ≈ `(1.0, 1.0)` | NE at 45° |
-| `test_known_vector` | Use known test case: lat=36, lon=-6, rumbo=229, dist=24 | Pre-compute expected | Verify against known output |
-
-**`test_distancia_nmi`:**
 
 | Test | Input | Expected | Notes |
 |------|-------|----------|-------|
@@ -150,64 +122,7 @@ def mock_apparent(mocker):
 
 For different test cases, the fixture creates different mock return values.
 
-**`test_lectura_sextante`:**
-
-| Test | Mock setup | Expected | Notes |
-|------|-----------|----------|-------|
-| `test_sun_lower_limb` | Apparent alt=45°, geometric alt=44.9°, az=180°, dist=149600000km | hs = 45° - dip - sd. Verify all 7 dict keys present | |
-| `test_sun_upper_limb` | Same alt, different limb | hs = 45° - dip + sd | Limb flips sd sign |
-| `test_moon_lower_limb` | Apparent alt=30°, dist=384400km | hs includes moon sd ≈ 0.259° | |
-| `test_star_center` | Apparent alt=40°, body="Sirius" | sd=0, hs = 40° - dip | Stars have no sd |
-| `test_zero_he` | `altura_ojo_m=0` | dip=0 | Edge case |
-| `test_high_he` | `altura_ojo_m=30` | Larger dip | |
-| `test_hs_lt_ho` | Apparent > geometric | hs < ho (since hs excludes refraction) | Conceptual check |
-
-**`test_cuerpos_visibles`:**
-
-Strategy: mock `altura_cuerpo()` to return controlled values per body name.
-
-| Test | Mock setup | Expected | Notes |
-|------|-----------|----------|-------|
-| `test_all_above_threshold` | All bodies return alt > 10° | All body names in result | |
-| `test_some_below_threshold` | Some bodies return alt < 5° | Only above-threshold in result | |
-| `test_none_visible` | All below min_alt | Empty dict | |
-| `test_custom_min_alt` | min_alt=20°, some between 10-20 | Correct filtering | |
-| `test_alt_az_values` | Known alt/az per body | Dict values match mock returns | |
-
-### Phase 1.3 — `tests/test_lop.py`
-
-**`test_solve_fix_least_squares`:**
-
-The function takes `list[LOP]` where `LOP(a, zn)` has `a` (intercept nmi) and `zn` (azimuth deg). Returns `(x_east, y_north)` in nmi.
-
-| Test | Input LOPs | Expected | Notes |
-|------|-----------|----------|-------|
-| `test_two_perpendicular_lops` | `[LOP(10, 0), LOP(10, 90)]` — North + East | `(10, 10)` | Simple case: x=10, y=10 |
-| `test_two_opposite_lops` | `[LOP(10, 0), LOP(-10, 180)]` | `(0, 10)` | Opposing directions cancel East |
-| `test_three_lops` | `[LOP(5, 0), LOP(5, 120), LOP(5, 240)]` | Overdetermined, near `(0, 5)` | Triangle, expect center |
-| `test_parallel_lops` | `[LOP(10, 90), LOP(20, 90)]` — both East | `(15, 0)` | Parallel = average intercept |
-| `test_anti_parallel_lops` | `[LOP(10, 90), LOP(-10, 270)]` | East components cancel | |
-| `test_degenerate_raises` | Single LOP or all parallel azimuths | `ValueError` | Singular matrix |
-
-**`test_apply_offset`:**
-
-Takes `Position(lat, lon)`, `x_east` (nmi), `y_north` (nmi). Returns new `Position`.
-
-| Test | Input | Expected | Notes |
-|------|-------|----------|-------|
-| `test_zero_offset` | `Position(30, -40), 0, 0` | `Position(30, -40)` | Identity |
-| `test_north_only` | `Position(0, 0), 0, 60` | `Position(1, 0)` | 60 nmi North = 1° |
-| `test_east_at_equator` | `Position(0, 0), 60, 0` | `Position(0, 1)` | 60 nmi East at equator = 1° |
-| `test_east_at_mid_lat` | `Position(45, 0), 60, 0` | `Position(45, 60/(60*cos(45°)))` | Longitude change accounts for convergence |
-| `test_negative_values` | `Position(10, 20), -60, -60` | Moves SW | |
-
-**`test_compute_fix_multi`:**
-
-Integration test: known LOPs → solve → apply offset.
-
-| Test | Input | Expected | Notes |
-|------|-------|----------|-------|
-| `test_happy_path` | `Position(30, -40), [LOP(10, 0), LOP(10, 90)]` | `Position(30+10/60, -40+10/(60*cos(30°)))` | Full pipeline |
+### Phase 1.3 — `tests/test_lop.py` — **skipped** (lop.py deleted in Phase 3.4)
 
 ### Phase 1.4 — Run tests and verify
 
