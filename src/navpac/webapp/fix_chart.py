@@ -12,36 +12,20 @@ def _nmi_offsets(lat: float, lon: float, ref: Position) -> tuple[float, float]:
     return dy, dx
 
 
-def _plot_latlon_grid(ax, dr: Position, half: float):
+def _plot_latlon_grid(ax, dr: Position, xlo: float, xhi: float, ylo: float, yhi: float):
     step = max(1.0, round(5.0 / math.cos(math.radians(dr.lat)) * 4) / 4)
     lat0 = round(dr.lat / step) * step
     lon0 = round(dr.lon / step) * step
     for lat_i in np.arange(lat0 - 10 * step, lat0 + 10 * step + 0.5 * step, step):
         offy, _ = _nmi_offsets(lat_i, dr.lon, dr)
-        if -half <= offy <= half:
+        if ylo <= offy <= yhi:
             ax.axhline(offy, color="lightgray", linewidth=0.5)
-            ax.text(
-                half * 0.98,
-                offy,
-                f"{lat_i:.1f}°",
-                fontsize=7,
-                color="gray",
-                ha="right",
-                va="center",
-            )
+            ax.text(xhi * 0.98, offy, f"{lat_i:.1f}°", fontsize=7, color="gray", ha="right", va="center")
     for lon_i in np.arange(lon0 - 10 * step, lon0 + 10 * step + 0.5 * step, step):
         _, offx = _nmi_offsets(dr.lat, lon_i, dr)
-        if -half <= offx <= half:
+        if xlo <= offx <= xhi:
             ax.axvline(offx, color="lightgray", linewidth=0.5)
-            ax.text(
-                offx,
-                half * 0.98,
-                f"{lon_i:.1f}°",
-                fontsize=7,
-                color="gray",
-                ha="center",
-                va="top",
-            )
+            ax.text(offx, yhi * 0.98, f"{lon_i:.1f}°", fontsize=7, color="gray", ha="center", va="top")
 
 
 def _plot_lop(ax, a: float, zn: float, color, half: float, label: str):
@@ -61,13 +45,7 @@ def _plot_lop(ax, a: float, zn: float, color, half: float, label: str):
     ax.text(mx + lw, my + lw, label, color=color, fontweight="bold", fontsize=9)
 
 
-def _plot_compass(
-    ax,
-    intercepts: list[tuple[float, float]],
-    half: float,
-    colors,
-    center: tuple[float, float] = (0, 0),
-):
+def _plot_compass(ax, intercepts, half, colors, center=(0, 0)):
     cx = half * 0.7 + center[0]
     cy = half * 0.7 + center[1]
     cr = half * 0.15
@@ -87,7 +65,7 @@ def _plot_compass(
             ha="center",
             va="center",
         )
-    for i, (a, zn) in enumerate(intercepts):
+    for i, (_, zn) in enumerate(intercepts):
         color = colors[i % len(colors)]
         az_r = math.radians(zn)
         tx = cx + cr * 0.85 * math.sin(az_r)
@@ -114,21 +92,30 @@ def plot_fix_chart(
     fix: Fix,
     zoom: float = 1.5,
 ) -> plt.Figure:
-    max_intercept = max(abs(a) for a, _ in intercepts) if intercepts else 10.0
-    half = max(max_intercept * zoom, 4.0)
+    fy, fx = _nmi_offsets(fix.lat, fix.lon, dr)
+
+    cx, cy = fx / 2.0, fy / 2.0
+
+    pts = [(0.0, 0.0), (fx, fy)]
+    for a, zn in intercepts:
+        az_r = math.radians(zn)
+        pts.append((a * math.sin(az_r), a * math.cos(az_r)))
+
+    max_dist = max(math.hypot(px - cx, py - cy) for px, py in pts)
+    half = max(max_dist * zoom, 4.0)
 
     fig, ax = plt.subplots(figsize=(8, 8))
     ax.set_aspect("equal")
     ax.set_title("Fix LOP Chart", fontsize=14, fontweight="bold")
     ax.set_xlabel("<-- West -- East --> (nmi)")
     ax.set_ylabel("<-- South -- North --> (nmi)")
-    ax.set_xlim(-half, half)
-    ax.set_ylim(-half, half)
+    ax.set_xlim(cx - half, cx + half)
+    ax.set_ylim(cy - half, cy + half)
     ax.grid(True, linestyle=":", alpha=0.3)
     ax.axhline(0, color="gray", linewidth=0.5)
     ax.axvline(0, color="gray", linewidth=0.5)
 
-    _plot_latlon_grid(ax, dr, half)
+    _plot_latlon_grid(ax, dr, cx - half, cx + half, cy - half, cy + half)
     colors = plt.cm.Set1.colors
     for i, (a, zn) in enumerate(intercepts):
         _plot_lop(ax, a, zn, colors[i % len(colors)], half, f"LOP{i + 1}")
@@ -136,11 +123,10 @@ def plot_fix_chart(
     off = half * 0.08
     ax.plot(0, 0, marker="s", color="blue", markersize=8, zorder=5)
     ax.text(off, off, "DR", color="blue", fontweight="bold", fontsize=10)
-    fy, fx = _nmi_offsets(fix.lat, fix.lon, dr)
     ax.plot(fx, fy, marker="D", color="red", markersize=10, zorder=5)
     ax.text(fx + off, fy + off, "Fix", color="red", fontweight="bold", fontsize=10)
 
-    _plot_compass(ax, intercepts, half, colors)
+    _plot_compass(ax, intercepts, half, colors, (cx, cy))
     if intercepts:
         ax.legend(loc="lower right", fontsize=9)
     plt.tight_layout()
