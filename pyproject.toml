@@ -14,7 +14,21 @@ dependencies = [
     "geographiclib",
     "folium",
     "reportlab",
+    "celnav-core",
 ]
+
+[tool.uv.sources]
+celnav-core = { git = "https://github.com/adumont/celnav-core.git" }
+
+[project.scripts]
+webapp = "navpac.webapp.launcher:main"
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [dependency-groups]
 dev = [
@@ -23,6 +37,16 @@ dev = [
     "pytest-mock",
     "ruff",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 80
+
+[tool.coverage.run]
+source = ["src"]
 
 [tool.ruff]
 target-version = "py311"

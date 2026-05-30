@@ -43,7 +43,7 @@ The result is an **Hs** value formatted exactly as NavPac expects (`DMMSS`), tog
 Supported bodies: Sun, Moon, Venus, Mars, Jupiter, Saturn, and 15 navigational stars (Polaris, Sirius, Vega, Arcturus, Canopus, Rigel, and more), each mapped to its NavPac star index number.
 
 ### 4. Fix Calculator
-Enter the altitude intercepts (**a**, in tenths of a nautical mile, suffix `A` for Away or `T` for Toward) and azimuths (**ZN**) that NavPac's `SIGHT` program outputs, and the app calculates a geometric fix from up to three Lines of Position. You can then push the resulting fix back as the new DR position for the next leg.
+Enter the altitude intercepts (**a**, in tenths of a nautical mile, suffix `A` for Away or `T` for Toward) and azimuths (**ZN**) that NavPac's `SIGHT` program outputs, and the app calculates a geometric fix from up to three Lines of Position. A matplotlib chart shows the LOPs, intercept vectors, and fix intersection on a flat-plane coordinate grid centered on the DR position. You can then push the resulting fix back as the new DR position for the next leg.
 
 ---
 
@@ -68,6 +68,7 @@ Enter the altitude intercepts (**a**, in tenths of a nautical mile, suffix `A` f
 
 6. **Fix Calculator tab** — paste the intercept(s) and azimuth(s) from NavPac.
    - The app computes the intersection of the Lines of Position and displays your Fix.
+   - A chart plots each LOP (with intercept vector and azimuth) and the fix intersection on a flat-plane grid.
    - Press *Update DR Position with FIX* to use that fix as the starting point for the next leg.
 
 7. **Positioning section (inside Sextant tab)** — enter your fix coordinates and press *Reveal Real Position* to see how far your celestial navigation placed you from where the ship actually is.
@@ -93,8 +94,8 @@ The first run downloads the DE421 ephemeris (~17 MB) if not already present loca
 
 | File | Purpose |
 |---|---|
-| `app.py` | Streamlit UI and session state management |
-| `navigation.py` | Skyfield ephemeris wrapper, sextant simulation, ship movement |
+| `webapp/app.py` | Streamlit UI and session state management |
+| `navigation.py` | Ship movement (DR simulation) |
 | `angulos.py` | Angle formatting and parsing (DMS, NavPac DMMSS, decimal) |
-| `lop.py` | Line-of-Position geometry and multi-LOP fix computation |
-| `tipos.py` | Shared data classes (`LOP`, `Position`) |
+| `tipos.py` | Shared data classes (re-exports `Position` from celnav-core) |
+| `webapp/fix_chart.py` | Matplotlib LOP chart (intercept vectors, fix intersection, compass rose) |
