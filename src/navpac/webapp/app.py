@@ -2,6 +2,7 @@ import pathlib
 import sys
 
 import streamlit as st
+import streamlit.web.cli
 import datetime
 import random
 import re
@@ -744,9 +745,6 @@ Fix Longitude: {formatear_angulo_dms(fix.lon, es_latitud=False)}
         st.warning(
             "Please enter at least two valid altitude intercept (a) and azimuth (ZN) to compute the FIX."
         )
-
-
-import streamlit.web.cli
 
 
 def main():
