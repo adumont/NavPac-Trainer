@@ -132,17 +132,16 @@ For different test cases, the fixture creates different mock return values.
 
 ---
 
-## Phase 2: celnav-core additions (non-breaking)
+## Phase 2: celnav-core additions (non-breaking) — [x] Done
 
 **Location:** `C:\Projects\celnav-core`
 
 **Principle:** All additions are additive — no existing function signatures change, no existing tests break.
+- [x] Commit `dcb7e8f` pushed to `https://github.com/adumont/celnav-core.git`
 
-### Phase 2.1 — Extend `SextantReading` model
+### Phase 2.1 — Extend `SextantReading` model — [x] Done
 
 **File:** `src/celnav_core/models.py`
-
-Add these fields to `SextantReading`:
 
 ```python
 class SextantReading(BaseModel):
@@ -162,7 +161,7 @@ All new fields have no default — they are required.
 
 **Impact:** Existing consumers that construct `SextantReading(positional_args...)` will break if they omit these fields. Use keyword-argument construction (which is the style in `compute_ho()`). Alternatively, give them defaults of `0.0` to be truly non-breaking (but this silently loses data). **Decision: keyword-only after the 5th positional param, or add with defaults?** The existing `compute_ho()` calls it with keyword args, so it's safe. Any external code constructing `SextantReading(lat, lon, ...)` positionally would break, but that's unlikely in practice.
 
-### Phase 2.2 — Update `compute_ho()`
+### Phase 2.2 — Update `compute_ho()` — [x] Done
 
 **File:** `src/celnav_core/core/sight.py`
 
@@ -198,9 +197,9 @@ hs = apparent_alt - dip + limb_sign * sd
 
 **Note:** The `semidiameter_arcmin` field always stores the absolute value (positive), regardless of limb. The limb only affects `hs`.
 
-### Phase 2.3 — Add `haversine_distance()`
+### Phase 2.3 — Add `haversine_distance()` — [x] Done
 
-**File:** `src/celnav_core/core/reduction.py` (or new `src/celnav_core/utils/geo.py`)
+**File:** `src/celnav_core/core/reduction.py`
 
 ```python
 def haversine_distance(p1: Position, p2: Position) -> float:
@@ -243,7 +242,7 @@ def compute_fix_error(fix: Fix, real_pos: Position) -> Fix:
 - `test_haversine_symmetric` — A→B = B→A
 - `test_haversine_known_values` — verify against pre-computed cases
 
-### Phase 2.4 — Add `solve_fix_from_intercepts()`
+### Phase 2.4 — Add `solve_fix_from_intercepts()` — [x] Done
 
 **File:** `src/celnav_core/core/reduction.py`
 
@@ -293,7 +292,7 @@ def solve_fix_from_intercepts(
 - `test_three_intercepts` — overdetermined system
 - `test_anti_parallel` — `[(10, 0), (-10, 180)]` → East cancels, North averages
 
-### Phase 2.5 — Add `format_navpac_dmmss()`
+### Phase 2.5 — Add `format_navpac_dmmss()` — [x] Done
 
 **File:** `src/celnav_core/utils/angles.py`
 
@@ -322,7 +321,7 @@ def format_navpac_dmmss(deg: float) -> str:
 - `test_exact_minute` — `45.5` → `"45.3000"`
 - `test_rounding` — `45.5001` rounded behavior
 
-### Phase 2.6 — Add `parse_dms_string()`
+### Phase 2.6 — Add `parse_dms_string()` — [x] Done
 
 **File:** `src/celnav_core/utils/angles.py`
 
@@ -360,7 +359,7 @@ Implementation approach: normalize separators, extract hemisphere sign, parse co
 - `test_edge_90n` — `"90º0'0\"N"` → `90.0`
 - `test_invalid` — `""` raises `ValueError`, `"abc"` raises `ValueError`
 
-### Phase 2.7 — Update `__init__.py` exports
+### Phase 2.7 — Update `__init__.py` exports — [x] Done
 
 **File:** `src/celnav_core/__init__.py`
 
@@ -372,9 +371,9 @@ Add to `__all__`:
 
 ### Phase 2.8 — Run celnav-core tests
 
-- [ ] `cd C:\Projects\celnav-core && uv run pytest -v` — all existing tests pass
-- [ ] `cd C:\Projects\celnav-core && uv run pytest --cov --cov-fail-under=90` — coverage maintained
-- [ ] `cd C:\Projects\celnav-core && uv run ruff check --fix . && uv run ruff format`
+- [x] `cd C:\Projects\celnav-core && uv run pytest -v` — all existing tests pass (120/120)
+- [x] `cd C:\Projects\celnav-core && uv run pytest --cov --cov-fail-under=90` — coverage maintained (97.44%)
+- [ ] `cd C:\Projects\celnav-core && uv run ruff check --fix . && uv run ruff format` (ruff not installed in celnav-core venv)
 
 ---
 
