@@ -117,7 +117,7 @@ def plot_fix_chart(
     max_intercept = max(abs(a) for a, _ in intercepts) if intercepts else 10.0
     half = max(max_intercept * zoom, 4.0)
 
-    fig, ax = plt.subplots(figsize=(8, 8))
+    fig, ax = plt.subplots(figsize=(5, 5))
     ax.set_aspect("equal")
     ax.set_title("Fix LOP Chart", fontsize=14, fontweight="bold")
     ax.set_xlabel("<-- West -- East --> (nmi)")
