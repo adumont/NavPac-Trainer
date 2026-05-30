@@ -126,9 +126,9 @@ For different test cases, the fixture creates different mock return values.
 
 ### Phase 1.4 — Run tests and verify
 
-- [ ] `uv run pytest tests/ -v` — all pass
-- [ ] `uv run pytest --cov --cov-report=term-missing` — confirm coverage metrics
-- [ ] `uv run ruff check tests/` — no lint issues
+- [x] `uv run pytest tests/ -v` — all pass
+- [x] `uv run pytest --cov --cov-report=term-missing` — 5% (expected — most code replaced in Phase 3)
+- [x] `uv run ruff check tests/` — no lint issues
 
 ---
 
